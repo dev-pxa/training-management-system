@@ -1,4 +1,8 @@
-import { deleteUser, getUserList } from '@/services/users';
+import {
+  ResourceListItem,
+  deleteResource,
+  getResourceList,
+} from '@/services/resource';
 import { handleApiResponse } from '@/utils/response';
 import { PlusOutlined } from '@ant-design/icons';
 import {
@@ -11,58 +15,33 @@ import { Link, Outlet, history } from '@umijs/max';
 import { Button, Popconfirm, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
-const UserPage: React.FC = () => {
+const ResourcePage: React.FC = () => {
   const actionRef = useRef<ActionType>();
-  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [selectedRows, setSelectedRows] = useState<ResourceListItem[]>([]);
 
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await deleteUser({ ids: [id] });
-      handleApiResponse(res, '删除成功');
+  const handleDelete = async (id: number) => {
+    const res = await deleteResource({ ids: [id] });
+    if (handleApiResponse(res)) {
       actionRef.current?.reload();
-    } catch (error: any) {
-      message.error(error?.message || '删除失败');
     }
   };
 
   const handleBatchDelete = async () => {
     const selectedIds = selectedRows.map((row) => row.id);
-    try {
-      const res = await deleteUser({ ids: selectedIds });
-      if (handleApiResponse(res, `成功删除 ${selectedIds.length} 条记录`)) {
-        setSelectedRows([]);
-        actionRef.current?.reload();
-      }
-    } catch (error: any) {
-      message.error(error?.message || '删除失败');
+    const res = await deleteResource({ ids: selectedIds });
+    if (handleApiResponse(res)) {
+      setSelectedRows([]);
+      actionRef.current?.reload();
     }
   };
 
   const handleAdd = () => {
-    history.push('/user/add');
+    history.push('/resource/add');
   };
 
   const columns = [
     {
-      title: '用户名',
-      dataIndex: 'uname',
-      key: 'uname',
-      valueType: 'text',
-      search: {
-        show: true,
-      },
-    },
-    {
-      title: '手机号',
-      dataIndex: 'phone',
-      key: 'phone',
-      valueType: 'text',
-      search: {
-        show: true,
-      },
-    },
-    {
-      title: '姓名',
+      title: '资源名称',
       dataIndex: 'name',
       key: 'name',
       valueType: 'text',
@@ -71,34 +50,55 @@ const UserPage: React.FC = () => {
       },
     },
     {
-      title: '权限',
-      dataIndex: 'permission',
-      key: 'permission',
+      title: '资源类型',
+      dataIndex: 'type',
+      key: 'type',
       valueType: 'select',
-      valueEnum: {
-        0: { text: '用户' },
-        1: { text: '管理员' },
-      },
       search: {
         show: true,
         valueEnum: {
-          0: { text: '用户' },
-          1: { text: '管理员' },
+          0: { text: '图片资源' },
+          1: { text: '视频资源' },
+          2: { text: 'PDF资源' },
         },
+      },
+      valueEnum: {
+        0: { text: '图片资源' },
+        1: { text: '视频资源' },
+        2: { text: 'PDF资源' },
+      },
+    },
+    {
+      title: '资源内容',
+      dataIndex: 'contentUrl',
+      key: 'contentUrl',
+      valueType: 'text',
+      ellipsis: true,
+      hideInSearch: true,
+    },
+    {
+      title: '作者',
+      dataIndex: 'owner',
+      key: 'owner',
+      valueType: 'text',
+      search: {
+        show: true,
       },
     },
     {
       title: '操作',
       key: 'action',
       valueType: 'option',
-      render: (_: any, record: any) => (
+      width: 280,
+      hideInSearch: true,
+      render: (_: any, record: ResourceListItem) => (
         <div>
-          <Link to={`/user/detail/${record.id}?editable=false`}>
+          <Link to={`/resource/detail/${record.id}?editable=false`}>
             <Button type="link" style={{ marginRight: 8 }}>
               详情
             </Button>
           </Link>
-          <Link to={`/user/detail/${record.id}?editable=true`}>
+          <Link to={`/resource/detail/${record.id}?editable=true`}>
             <Button type="link" style={{ marginRight: 8 }}>
               编辑
             </Button>
@@ -121,13 +121,13 @@ const UserPage: React.FC = () => {
   return (
     <PageContainer
       header={{
-        title: '人员管理',
+        title: '资源管理',
       }}
     >
       <Outlet />
-      <ProTable
+      <ProTable<ResourceListItem>
         actionRef={actionRef}
-        headerTitle="人员列表"
+        headerTitle="资源列表"
         rowKey="id"
         search={{
           labelWidth: 120,
@@ -148,24 +148,29 @@ const UserPage: React.FC = () => {
           },
         }}
         request={async (params) => {
-          const res = await getUserList({
+          const res = await getResourceList({
             queryInfo: {
               name: params.name,
-              phone: params.phone,
-              uname: params.uname,
-              permission:
-                params.permission !== undefined
-                  ? Number(params.permission)
-                  : undefined,
+              type: params.type !== undefined ? Number(params.type) : undefined,
+              owner: params.owner,
             },
             pageSize: 10,
             pageNum: params.current || 1,
           });
 
+          if (res.code !== 0) {
+            message.error(res.des || '获取列表失败');
+            return {
+              data: [],
+              success: false,
+              total: 0,
+            };
+          }
+
           return {
-            data: res?.data?.list || [],
-            success: res?.success || true,
-            total: res?.data?.total || 0,
+            data: res.data.list || [],
+            success: true,
+            total: res.data.total || 0,
           };
         }}
         columns={columns}
@@ -197,4 +202,4 @@ const UserPage: React.FC = () => {
   );
 };
 
-export default UserPage;
+export default ResourcePage;

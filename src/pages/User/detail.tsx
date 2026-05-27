@@ -1,232 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useLocation } from '@umijs/max';
-import { Form, Input, Select, Button, message, Modal, InputNumber } from 'antd';
+import { addUser, getUserDetail, updateUser } from '@/services/users';
+import { handleApiResponse } from '@/utils/response';
 import { PageContainer } from '@ant-design/pro-components';
-import { CopyOutlined } from '@ant-design/icons';
+import { history, useLocation, useParams } from '@umijs/max';
+import { Button, Form, Input, message, Select } from 'antd';
+import React, { useEffect, useState } from 'react';
 
 const { Option } = Select;
-
-// 模拟数据
-const mockData = [
-  {
-    id: 1,
-    username: 'user1',
-    phone: '13800138001',
-    name: '张三',
-    role: '用户',
-  },
-  {
-    id: 2,
-    username: 'admin1',
-    phone: '13800138002',
-    name: '李四',
-    role: '管理员',
-  },
-  {
-    id: 3,
-    username: 'user2',
-    phone: '13800138003',
-    name: '王五',
-    role: '用户',
-  },
-];
 
 const UserDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const editable = location.search.includes('editable=true');
+  const isAddMode = location.pathname === '/user/add';
+  const editable = isAddMode || location.search.includes('editable=true');
   const [form] = Form.useForm();
-  const [userData, setUserData] = useState<any>(null);
-  const [phoneModalVisible, setPhoneModalVisible] = useState(false);
-  const [newPhone, setNewPhone] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(!isAddMode);
 
   useEffect(() => {
-    // 模拟获取用户数据
-    const user = mockData.find(item => item.id === parseInt(id));
-    if (user) {
-      setUserData(user);
-      form.setFieldsValue(user);
-    }
-  }, [id, form]);
-
-  // 复制用户名
-  const handleCopyUsername = () => {
-    navigator.clipboard.writeText(userData?.username || '');
-    message.success('用户名已复制');
-  };
-
-  // 打开手机号更改弹窗
-  const handleOpenPhoneModal = () => {
-    setNewPhone('');
-    setVerificationCode('');
-    setCountdown(0);
-    setPhoneModalVisible(true);
-  };
-
-  // 发送验证码
-  const handleSendVerificationCode = () => {
-    if (!newPhone) {
-      message.error('请输入新手机号');
-      return;
-    }
-    // 模拟发送验证码
-    message.success('验证码已发送');
-    // 开始倒计时
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
+    if (!isAddMode) {
+      const fetchData = async () => {
+        try {
+          const res = await getUserDetail(id);
+          if (res?.code === 0 && res?.data) {
+            form.setFieldsValue({
+              uname: res.data.uname,
+              phone: res.data.phone,
+              name: res.data.name,
+              permission: res.data.permission,
+            });
+          } else if (res?.code !== 0) {
+            message.error(res?.des || res?.desc || '获取用户信息失败');
+          }
+        } catch (error: any) {
+          message.error(error?.message || '获取用户信息失败');
+        } finally {
+          setLoading(false);
         }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // 确认更改手机号
-  const handleConfirmPhoneChange = () => {
-    if (!newPhone) {
-      message.error('请输入新手机号');
-      return;
+      };
+      fetchData();
     }
-    if (!verificationCode) {
-      message.error('请输入验证码');
-      return;
+  }, [id, form, isAddMode]);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      let res;
+      if (isAddMode) {
+        res = await addUser({
+          uname: values.uname,
+          phone: values.phone,
+          name: values.name,
+          permission: values.permission,
+        });
+      } else {
+        res = await updateUser(id, {
+          uname: values.uname,
+          phone: values.phone,
+          name: values.name,
+          permission: values.permission,
+        });
+      }
+
+      if (handleApiResponse(res)) {
+        history.push('/user');
+      }
+    } catch (error: any) {
+      message.error(error?.message || '操作失败');
     }
-    // 模拟更改手机号
-    form.setFieldsValue({ phone: newPhone });
-    setPhoneModalVisible(false);
-    message.success('手机号已更改');
   };
 
-  const handleSubmit = (values: any) => {
-    message.success('保存成功');
-    console.log('保存的数据:', values);
-  };
-
-  if (!userData) {
+  if (loading) {
     return <div>加载中...</div>;
   }
 
   return (
     <PageContainer
       header={{
-        title: editable ? '编辑用户' : '用户详情',
+        title: isAddMode ? '添加用户' : editable ? '编辑用户' : '用户详情',
       }}
     >
       <div style={{ maxWidth: 600 }}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={userData}
-        >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
-            name="username"
+            name="uname"
             label="用户名"
             rules={[{ required: true, message: '请输入用户名' }]}
           >
-            <Input 
-              disabled 
-              suffix={
-                <CopyOutlined 
-                  onClick={handleCopyUsername} 
-                  style={{ cursor: 'pointer' }} 
-                />
-              } 
-            />
+            <Input disabled={!editable} placeholder="请输入用户名" />
           </Form.Item>
+
           <Form.Item
             name="phone"
             label="手机号"
-            rules={[{ required: true, message: '请输入手机号' }]}
+            rules={[
+              { required: true, message: '请输入手机号' },
+              { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号' },
+            ]}
           >
-            <Input 
-              disabled 
-              suffix={
-                editable && (
-                  <Button 
-                    type="link" 
-                    onClick={handleOpenPhoneModal}
-                  >
-                    更改
-                  </Button>
-                )
-              } 
-            />
+            <Input disabled={!editable} placeholder="请输入手机号" />
           </Form.Item>
+
           <Form.Item
             name="name"
             label="姓名"
             rules={[{ required: true, message: '请输入姓名' }]}
           >
-            <Input disabled={!editable} />
+            <Input disabled={!editable} placeholder="请输入姓名" />
           </Form.Item>
+
           <Form.Item
-            name="role"
+            name="permission"
             label="权限"
             rules={[{ required: true, message: '请选择权限' }]}
           >
-            <Select disabled={!editable}>
-              <Option value="用户">用户</Option>
-              <Option value="管理员">管理员</Option>
+            <Select disabled={!editable} placeholder="请选择权限">
+              <Option value={0}>用户</Option>
+              <Option value={1}>管理员</Option>
             </Select>
           </Form.Item>
+
           {editable && (
             <Form.Item>
               <Button type="primary" htmlType="submit">
-                保存
+                确定
               </Button>
             </Form.Item>
           )}
         </Form>
       </div>
-
-      {/* 手机号更改弹窗 */}
-      <Modal
-        title="更改手机号"
-        open={phoneModalVisible}
-        onCancel={() => setPhoneModalVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setPhoneModalVisible(false)}>
-            取消
-          </Button>,
-          <Button 
-            key="confirm" 
-            type="primary" 
-            onClick={handleConfirmPhoneChange}
-          >
-            确认
-          </Button>,
-        ]}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ marginBottom: 8 }}>更改前手机号：{userData.phone}</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <Input
-              placeholder="更改后手机号"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              type="primary"
-              onClick={handleSendVerificationCode}
-              disabled={countdown > 0}
-            >
-              {countdown > 0 ? `${countdown}秒后重发` : '发送验证码'}
-            </Button>
-          </div>
-          <Input
-            placeholder="验证码"
-            value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value)}
-          />
-        </div>
-      </Modal>
     </PageContainer>
   );
 };
