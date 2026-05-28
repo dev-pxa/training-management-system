@@ -68,6 +68,20 @@ export default defineConfig({
       path: '/resource/detail/:id',
       component: './Resource/detail',
     },
+    {
+      name: '测试管理',
+      icon: 'FileTextOutlined',
+      path: '/test',
+      component: './Test',
+    },
+    {
+      path: '/test/add',
+      component: './Test/detail',
+    },
+    {
+      path: '/test/detail/:id',
+      component: './Test/detail',
+    },
   ],
 
   /* ==================== 以下代理配置，仅用于开发环境，上线前请删除 ==================== */
