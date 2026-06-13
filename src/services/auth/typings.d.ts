@@ -6,4 +6,13 @@ declare namespace AuthAPI {
     name: string;
     permission: 1 | 2;
   }
+
+  interface Company {
+    code: string;
+    name: string;
+  }
+
+  interface LoginConfig {
+    companies: Company[];
+  }
 }

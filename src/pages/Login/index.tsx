@@ -1,21 +1,53 @@
 import useAuth from '@/hooks/useAuth';
-import { loginByPassword, loginBySms, sendSmsCode } from '@/services/auth';
+import {
+  getLoginConfig,
+  loginByPassword,
+  loginBySms,
+  sendSmsCode,
+} from '@/services/auth';
 import { handleApiResponse } from '@/utils/response';
 import {
+  BankOutlined,
   LockOutlined,
   MobileOutlined,
   SafetyOutlined,
 } from '@ant-design/icons';
 import { history } from '@umijs/max';
-import { Button, Form, Input, Tabs, message } from 'antd';
-import React, { useState } from 'react';
+import { Button, Form, Input, Select, Tabs, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 
 const LoginPage: React.FC = () => {
   const { refresh } = useAuth();
   const [activeTab, setActiveTab] = useState('password');
   const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [companies, setCompanies] = useState<AuthAPI.Company[]>([]);
+  const [configLoading, setConfigLoading] = useState(false);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    const fetchLoginConfig = async () => {
+      try {
+        setConfigLoading(true);
+        const res = await getLoginConfig();
+        if (res?.code === 0) {
+          const companyList = res.data?.companies || [];
+          setCompanies(companyList);
+          if (companyList.length > 0) {
+            form.setFieldsValue({ companyCode: companyList[0].code });
+          }
+        } else {
+          message.error(res?.des || res?.desc || '获取登录配置失败');
+        }
+      } catch {
+        message.error('获取登录配置失败，请稍后重试');
+      } finally {
+        setConfigLoading(false);
+      }
+    };
+
+    fetchLoginConfig();
+  }, [form]);
 
   const startCountdown = () => {
     setCountdown(60);
@@ -47,6 +79,7 @@ const LoginPage: React.FC = () => {
   };
 
   const handleSubmit = async (values: {
+    companyCode: string;
     phone: string;
     password?: string;
     code?: string;
@@ -55,11 +88,16 @@ const LoginPage: React.FC = () => {
       let res;
       if (activeTab === 'password') {
         res = await loginByPassword({
+          companyCode: values.companyCode,
           phone: values.phone,
           password: values.password!,
         });
       } else {
-        res = await loginBySms({ phone: values.phone, code: values.code! });
+        res = await loginBySms({
+          companyCode: values.companyCode,
+          phone: values.phone,
+          code: values.code!,
+        });
       }
       if (handleApiResponse(res, '登录成功')) {
         await refresh();
@@ -109,6 +147,21 @@ const LoginPage: React.FC = () => {
           ]}
         />
         <Form form={form} onFinish={handleSubmit} size="large">
+          <Form.Item
+            name="companyCode"
+            rules={[{ required: true, message: '请选择公司' }]}
+          >
+            <Select
+              loading={configLoading}
+              placeholder="请选择公司"
+              suffixIcon={<BankOutlined />}
+              options={companies.map((company) => ({
+                label: company.name,
+                value: company.code,
+              }))}
+            />
+          </Form.Item>
+
           <Form.Item
             name="phone"
             rules={[

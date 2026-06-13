@@ -1,8 +1,21 @@
 import { request } from '@umijs/max';
 
+/** 获取登录配置 GET /api/login/config */
+export async function getLoginConfig(options?: { [key: string]: any }) {
+  return request<{
+    code: number;
+    des?: string;
+    desc?: string;
+    data: AuthAPI.LoginConfig;
+  }>('/api/auth/loginConfig', {
+    method: 'GET',
+    ...(options || {}),
+  });
+}
+
 /** 密码登录 POST /api/auth/login */
 export async function loginByPassword(
-  body: { phone: string; password: string },
+  body: { phone: string; password: string; companyCode: string },
   options?: { [key: string]: any },
 ) {
   return request('/api/auth/login', {
@@ -15,7 +28,7 @@ export async function loginByPassword(
 
 /** 验证码登录 POST /api/auth/loginBySms */
 export async function loginBySms(
-  body: { phone: string; code: string },
+  body: { phone: string; code: string; companyCode: string },
   options?: { [key: string]: any },
 ) {
   return request('/api/auth/loginBySms', {

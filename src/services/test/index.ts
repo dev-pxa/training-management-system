@@ -8,6 +8,7 @@ export const QUESTION_TYPE_FILL = 1;
 export interface ChoiceQuestion {
   type: typeof QUESTION_TYPE_CHOICE;
   title: string;
+  score: number;
   options: string[];
   answer: number;
 }
@@ -16,6 +17,7 @@ export interface ChoiceQuestion {
 export interface FillQuestion {
   type: typeof QUESTION_TYPE_FILL;
   title: string;
+  score: number;
   blankCount: number;
   answers: string[];
 }
@@ -26,10 +28,25 @@ export interface TestListItem {
   id: number;
   name: string;
   desc: string;
+  tag?: string;
+  timeLimit?: number;
+  passScore?: number;
   owner?: string;
 }
 
 export interface TestDetail extends TestListItem {
+  tag: string;
+  timeLimit: number;
+  passScore: number;
+  questions: Question[];
+}
+
+export interface TestPayload {
+  name: string;
+  desc: string;
+  tag: string;
+  timeLimit: number;
+  passScore: number;
   questions: Question[];
 }
 
@@ -80,11 +97,7 @@ export async function deleteTest(
 
 /** 添加测试 POST /api/test */
 export async function addTest(
-  body: {
-    name: string;
-    desc: string;
-    questions: Question[];
-  },
+  body: TestPayload,
   options?: { [key: string]: any },
 ) {
   return request('/api/test', {
@@ -100,11 +113,7 @@ export async function addTest(
 /** 更新测试 PUT /api/test?id={id} */
 export async function updateTest(
   id: number,
-  body: {
-    name: string;
-    desc: string;
-    questions: Question[];
-  },
+  body: TestPayload,
   options?: { [key: string]: any },
 ) {
   return request('/api/test', {

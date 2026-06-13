@@ -2,10 +2,12 @@ import ResourceSelector from '@/components/ResourceSelector';
 import {
   addCourse,
   Chapter,
+  CourseResourceRef,
   getCourseDetail,
   updateCourse,
 } from '@/services/course';
 import { getResourceList, ResourceListItem } from '@/services/resource';
+import { getTestList, TestListItem } from '@/services/test';
 import { handleApiResponse } from '@/utils/response';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
@@ -15,6 +17,29 @@ import React, { useEffect, useState } from 'react';
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+const normalizeResource = (
+  resource?: CourseResourceRef,
+  contentUrl?: string,
+): CourseResourceRef | undefined => {
+  if (resource) {
+    return resource;
+  }
+  if (contentUrl) {
+    return { contentUrl };
+  }
+  return undefined;
+};
+
+const formatResource = (resource?: CourseResourceRef) =>
+  resource
+    ? {
+        id: resource.id,
+        name: resource.name,
+        contentUrl: resource.contentUrl,
+        type: resource.type,
+      }
+    : undefined;
 
 const CourseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +51,8 @@ const CourseDetailPage: React.FC = () => {
   const [courseType, setCourseType] = useState<number>(0);
   const [loading, setLoading] = useState(!isAddMode);
   const [resourceList, setResourceList] = useState<ResourceListItem[]>([]);
+  const [testList, setTestList] = useState<TestListItem[]>([]);
+  const [testLoading, setTestLoading] = useState(false);
 
   const loadResources = async () => {
     try {
@@ -41,9 +68,29 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const loadTests = async () => {
+    setTestLoading(true);
+    try {
+      const res = await getTestList({
+        pageSize: 100,
+        pageNum: 1,
+      });
+      if (res.code === 0 && res.data?.list) {
+        setTestList(res.data.list);
+      } else {
+        message.error(res.des || '获取测试列表失败');
+      }
+    } catch (error: any) {
+      message.error(error?.message || '获取测试列表失败');
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // 加载资源列表
+    // 加载资源列表和测试列表
     loadResources();
+    loadTests();
 
     if (!isAddMode && id) {
       const fetchData = async () => {
@@ -52,14 +99,33 @@ const CourseDetailPage: React.FC = () => {
           if (res.code === 0 && res.data) {
             const data = res.data;
             setCourseType(data.type);
-            setChapters(Array.isArray(data.details) ? data.details : []);
+            setChapters(
+              Array.isArray(data.details)
+                ? data.details.map((chapter: any) => ({
+                    name: chapter.name,
+                    desc: chapter.desc,
+                    contentResource: normalizeResource(
+                      chapter.contentResource,
+                      chapter.contentUrl,
+                    ),
+                  }))
+                : [],
+            );
             form.setFieldsValue({
               name: data.name,
               desc: data.desc,
               type: data.type,
               owner: data.owner,
               hasTest: data.hasTest,
-              certificateUrl: data.certificateUrl,
+              coverResource: normalizeResource(
+                data.coverResource,
+                data.coverUrl,
+              ),
+              certificateResource: normalizeResource(
+                data.certificateResource,
+                data.certificateUrl,
+              ),
+              testInfo: data.testInfo,
             });
           } else {
             message.error(res.des || '获取课程详情失败');
@@ -84,15 +150,33 @@ const CourseDetailPage: React.FC = () => {
         message.error(`第 ${i + 1} 章：请输入章节描述`);
         return;
       }
-      if (!chapters[i].contentUrl) {
+      if (!chapters[i].contentResource?.contentUrl) {
         message.error(`第 ${i + 1} 章：请选择章节内容`);
         return;
       }
     }
 
+    const selectedTest = testList.find(
+      (test) => test.id === values.testInfo?.id,
+    );
     const data = {
-      ...values,
-      details: chapters,
+      name: values.name,
+      desc: values.desc,
+      type: values.type,
+      hasTest: values.hasTest,
+      coverResource: formatResource(values.coverResource),
+      certificateResource: formatResource(values.certificateResource),
+      testInfo: values.hasTest
+        ? {
+            id: values.testInfo?.id,
+            name: selectedTest?.name || values.testInfo?.name,
+          }
+        : undefined,
+      details: chapters.map((chapter) => ({
+        name: chapter.name,
+        desc: chapter.desc,
+        contentResource: formatResource(chapter.contentResource),
+      })),
     };
 
     let res;
@@ -115,7 +199,6 @@ const CourseDetailPage: React.FC = () => {
     const newChapter: Chapter = {
       name: '',
       desc: '',
-      contentUrl: '',
     };
     setChapters([...chapters, newChapter]);
   };
@@ -139,10 +222,41 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const handleHasTestChange = (value: boolean) => {
+    if (!value) {
+      form.setFieldsValue({
+        testInfo: undefined,
+      });
+    }
+  };
+
+  const getTestOptions = () => {
+    const options = testList.map((test) => ({
+      value: test.id,
+      label: `${test.id}-${test.name}`,
+    }));
+    const currentTestInfo = form.getFieldValue('testInfo');
+    const currentTestId = currentTestInfo?.id;
+    const currentTestName = currentTestInfo?.name;
+
+    if (
+      currentTestId &&
+      currentTestName &&
+      !options.some((option) => option.value === currentTestId)
+    ) {
+      options.unshift({
+        value: currentTestId,
+        label: `${currentTestId}-${currentTestName}`,
+      });
+    }
+
+    return options;
+  };
+
   if (loading) {
     return <div>加载中...</div>;
   }
-
+  console.log(form.getFieldValue('coverResource'));
   return (
     <PageContainer
       header={{
@@ -168,6 +282,20 @@ const CourseDetailPage: React.FC = () => {
               disabled={!editable}
               rows={4}
               placeholder="请输入课程简介"
+            />
+          </Form.Item>
+
+          <Form.Item name="coverResource" label="课程封面">
+            <ResourceSelector
+              value={form.getFieldValue('coverResource')}
+              onChange={(resource) =>
+                form.setFieldsValue({ coverResource: resource })
+              }
+              resourceList={resourceList}
+              onRefreshResourceList={loadResources}
+              placeholder="请选择课程封面"
+              disabled={!editable}
+              allowedTypes={[0]}
             />
           </Form.Item>
 
@@ -197,19 +325,23 @@ const CourseDetailPage: React.FC = () => {
             label="是否需要考试"
             rules={[{ required: true, message: '请选择是否需要考试' }]}
           >
-            <Select disabled={!editable} placeholder="请选择">
+            <Select
+              disabled={!editable}
+              placeholder="请选择"
+              onChange={handleHasTestChange}
+            >
               <Option value={true}>是</Option>
               <Option value={false}>否</Option>
             </Select>
           </Form.Item>
 
           <Form.Item
-            name="certificateUrl"
+            name="certificateResource"
             label="证书"
             rules={[
               ({ getFieldValue }) => ({
                 validator(_, value) {
-                  if (getFieldValue('hasTest') && !value) {
+                  if (getFieldValue('hasTest') && !value?.contentUrl) {
                     return Promise.reject(new Error('需要考试时请选择证书'));
                   }
                   return Promise.resolve();
@@ -218,14 +350,52 @@ const CourseDetailPage: React.FC = () => {
             ]}
           >
             <ResourceSelector
-              value={form.getFieldValue('certificateUrl')}
-              onChange={(url) => form.setFieldsValue({ certificateUrl: url })}
+              value={form.getFieldValue('certificateResource')}
+              onChange={(resource) =>
+                form.setFieldsValue({ certificateResource: resource })
+              }
               resourceList={resourceList}
               onRefreshResourceList={loadResources}
               placeholder="请选择证书"
               disabled={!editable}
               allowedTypes={[0]} // 证书只能是图片资源
             />
+          </Form.Item>
+
+          <Form.Item name={['testInfo', 'name']} hidden>
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            shouldUpdate={(prev, current) => prev.hasTest !== current.hasTest}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('hasTest') ? (
+                <Form.Item
+                  name={['testInfo', 'id']}
+                  label="考试"
+                  rules={[{ required: true, message: '请选择考试' }]}
+                >
+                  <Select
+                    disabled={!editable}
+                    loading={testLoading}
+                    placeholder="请选择考试"
+                    options={getTestOptions()}
+                    onChange={(value) => {
+                      const selectedTest = testList.find(
+                        (test) => test.id === value,
+                      );
+                      form.setFieldsValue({
+                        testInfo: {
+                          id: value,
+                          name: selectedTest?.name,
+                        },
+                      });
+                    }}
+                  />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
 
           <div style={{ marginBottom: 24 }}>
@@ -301,8 +471,10 @@ const CourseDetailPage: React.FC = () => {
 
                 <Form.Item label="章节内容">
                   <ResourceSelector
-                    value={chapter.contentUrl}
-                    onChange={(url) => updateChapter(index, 'contentUrl', url)}
+                    value={chapter.contentResource}
+                    onChange={(resource) =>
+                      updateChapter(index, 'contentResource', resource)
+                    }
                     resourceList={resourceList}
                     onRefreshResourceList={loadResources}
                     placeholder="请选择资源"

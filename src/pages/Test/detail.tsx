@@ -21,6 +21,7 @@ import {
   Card,
   Form,
   Input,
+  InputNumber,
   message,
   Radio,
   Space,
@@ -47,11 +48,22 @@ const TestDetailPage: React.FC = () => {
           const res = await getTestDetail(id as unknown as number);
           if (res?.code === 0 && res?.data) {
             const data = res.data;
+            const timeLimit = data.timeLimit ?? 30 * 60;
+            const timeLimitMinutes = Math.floor(timeLimit / 60);
             form.setFieldsValue({
               name: data.name,
               desc: data.desc,
+              tag: data.tag,
+              passScore: data.passScore,
+              timeLimitHours: Math.floor(timeLimitMinutes / 60),
+              timeLimitMinutes: timeLimitMinutes % 60,
             });
-            setQuestions(data.questions || []);
+            setQuestions(
+              (data.questions || []).map((question: Question) => ({
+                ...question,
+                score: question.score ?? 5,
+              })),
+            );
           } else if (res?.code !== 0) {
             message.error(res?.des || res?.desc || '获取测试信息失败');
           }
@@ -72,10 +84,23 @@ const TestDetailPage: React.FC = () => {
       return;
     }
 
+    const timeLimit =
+      (Number(values.timeLimitHours || 0) * 60 +
+        Number(values.timeLimitMinutes || 0)) *
+      60;
+    if (timeLimit <= 0) {
+      message.error('测试时长必须大于0分钟');
+      return;
+    }
+
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.title || q.title.trim() === '') {
         message.error(`第${i + 1}题的题目标题不能为空`);
+        return;
+      }
+      if (q.score === undefined || q.score === null || Number(q.score) <= 0) {
+        message.error(`第${i + 1}题的分值必须大于0`);
         return;
       }
 
@@ -101,20 +126,20 @@ const TestDetailPage: React.FC = () => {
     }
 
     try {
-      let res;
-      if (isAddMode) {
-        res = await addTest({
-          name: values.name,
-          desc: values.desc,
-          questions,
-        });
-      } else {
-        res = await updateTest(id as unknown as number, {
-          name: values.name,
-          desc: values.desc,
-          questions,
-        });
-      }
+      const payload = {
+        name: values.name,
+        desc: values.desc,
+        tag: values.tag,
+        timeLimit,
+        passScore: Number(values.passScore),
+        questions: questions.map((question) => ({
+          ...question,
+          score: Number(question.score),
+        })),
+      };
+      const res = isAddMode
+        ? await addTest(payload)
+        : await updateTest(id as unknown as number, payload);
 
       if (handleApiResponse(res)) {
         history.push('/test');
@@ -129,6 +154,7 @@ const TestDetailPage: React.FC = () => {
     const newQuestion: ChoiceQuestion = {
       type: QUESTION_TYPE_CHOICE,
       title: '',
+      score: 5,
       options: ['', '', '', ''],
       answer: 0,
     };
@@ -140,6 +166,7 @@ const TestDetailPage: React.FC = () => {
     const newQuestion: FillQuestion = {
       type: QUESTION_TYPE_FILL,
       title: '$',
+      score: 5,
       blankCount: 1,
       answers: [''],
     };
@@ -153,15 +180,19 @@ const TestDetailPage: React.FC = () => {
     setQuestions(newQuestions);
   };
 
+  const updateQuestion = (index: number, field: string, value: any) => {
+    const newQuestions = [...questions];
+    newQuestions[index] = { ...newQuestions[index], [field]: value };
+    setQuestions(newQuestions);
+  };
+
   // 更新选择题
   const updateChoiceQuestion = (
     index: number,
     field: keyof ChoiceQuestion,
     value: any,
   ) => {
-    const newQuestions = [...questions];
-    newQuestions[index] = { ...newQuestions[index], [field]: value };
-    setQuestions(newQuestions);
+    updateQuestion(index, field, value);
   };
 
   // 更新选择题选项
@@ -225,13 +256,30 @@ const TestDetailPage: React.FC = () => {
       }}
     >
       <div style={{ maxWidth: 800 }}>
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            tag: '',
+            timeLimitHours: 0,
+            timeLimitMinutes: 30,
+          }}
+        >
           <Form.Item
             name="name"
             label="测试名称"
             rules={[{ required: true, message: '请输入测试名称' }]}
           >
             <Input disabled={!editable} placeholder="请输入测试名称" />
+          </Form.Item>
+
+          <Form.Item
+            name="tag"
+            label="标签"
+            rules={[{ required: true, message: '请输入标签' }]}
+          >
+            <Input disabled={!editable} placeholder="请输入标签" />
           </Form.Item>
 
           <Form.Item
@@ -243,6 +291,54 @@ const TestDetailPage: React.FC = () => {
               disabled={!editable}
               rows={4}
               placeholder="请输入测试描述"
+            />
+          </Form.Item>
+
+          <Form.Item label="测试时长" required>
+            <Space>
+              <Form.Item
+                name="timeLimitHours"
+                noStyle
+                rules={[{ required: true, message: '请输入小时' }]}
+              >
+                <InputNumber
+                  disabled={!editable}
+                  min={0}
+                  precision={0}
+                  style={{ width: 120 }}
+                  placeholder="小时"
+                />
+              </Form.Item>
+              <span>小时</span>
+              <Form.Item
+                name="timeLimitMinutes"
+                noStyle
+                rules={[{ required: true, message: '请输入分钟' }]}
+              >
+                <InputNumber
+                  disabled={!editable}
+                  min={0}
+                  max={59}
+                  precision={0}
+                  style={{ width: 120 }}
+                  placeholder="分钟"
+                />
+              </Form.Item>
+              <span>分钟</span>
+            </Space>
+          </Form.Item>
+
+          <Form.Item
+            name="passScore"
+            label="通过分数"
+            rules={[{ required: true, message: '请输入通过分数' }]}
+          >
+            <InputNumber
+              disabled={!editable}
+              min={0}
+              precision={0}
+              style={{ width: '100%' }}
+              placeholder="请输入通过分数"
             />
           </Form.Item>
 
@@ -291,6 +387,20 @@ const TestDetailPage: React.FC = () => {
                     ) : null
                   }
                 >
+                  <Form.Item label="分值" required>
+                    <InputNumber
+                      disabled={!editable}
+                      min={1}
+                      precision={0}
+                      value={q.score}
+                      onChange={(value) =>
+                        updateQuestion(qIndex, 'score', value)
+                      }
+                      style={{ width: 160 }}
+                      placeholder="请输入分值"
+                    />
+                  </Form.Item>
+
                   {q.type === QUESTION_TYPE_CHOICE ? (
                     <div>
                       <Form.Item label="题目标题" required>

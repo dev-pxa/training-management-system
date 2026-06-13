@@ -1,5 +1,6 @@
 import {
   addResource,
+  ResourceListItem,
   updateResource,
   uploadResourceFile,
 } from '@/services/resource';
@@ -18,8 +19,8 @@ const { Dragger } = Upload;
 interface ResourceFormModalProps {
   open: boolean;
   onCancel: () => void;
-  onSuccess: (resource: { url: string; name: string; type: number }) => void;
-  initialResource?: any;
+  onSuccess: (resource: ResourceListItem) => void;
+  initialResource?: ResourceListItem;
   allowedTypes?: number[]; // 允许的资源类型：0-图片，1-视频，2-PDF
 }
 
@@ -66,6 +67,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
       if (initialResource) {
         setResourceType(initialResource.type || getDefaultType());
         form.setFieldsValue({
+          resourceId: initialResource.id,
           name: initialResource.name,
           contentUrl: initialResource.contentUrl,
           type: initialResource.type,
@@ -83,7 +85,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
 
   const handleTypeChange = (value: number) => {
     setResourceType(value);
-    form.setFieldsValue({ contentUrl: undefined });
+    form.setFieldsValue({ resourceId: undefined, contentUrl: undefined });
   };
 
   const handleFileUpload = async (options: any) => {
@@ -99,7 +101,10 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
       const res = await uploadResourceFile(file as File);
       if (res.code === 0 && res.data?.url) {
         message.success('上传成功');
-        form.setFieldsValue({ contentUrl: res.data.url });
+        form.setFieldsValue({
+          resourceId: res.data.id,
+          contentUrl: res.data.url,
+        });
         onSuccess?.();
       } else {
         const errorMsg = res?.des || '上传失败';
@@ -140,22 +145,25 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      let res;
+      const resourceId = values.resourceId || initialResource?.id;
+      const resourceData = {
+        name: values.name,
+        contentUrl: values.contentUrl,
+        type: values.type,
+      };
 
-      if (isEditMode) {
-        res = await updateResource(initialResource.id, values);
-      } else {
-        res = await addResource(values);
+      const res = resourceId
+        ? await updateResource(resourceId, resourceData)
+        : await addResource(resourceData);
+      if (!handleApiResponse(res)) {
+        return;
       }
 
-      if (handleApiResponse(res)) {
-        onSuccess({
-          url: values.contentUrl,
-          name: values.name,
-          type: values.type,
-        });
-        onCancel();
-      }
+      onSuccess({
+        id: resourceId || res.data?.id,
+        ...resourceData,
+      });
+      onCancel();
     } catch (error) {
       console.error('Validation failed:', error);
     }
@@ -194,6 +202,10 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
             {isTypeAllowed(1) && <Option value={1}>视频资源</Option>}
             {isTypeAllowed(2) && <Option value={2}>PDF资源</Option>}
           </Select>
+        </Form.Item>
+
+        <Form.Item name="resourceId" hidden>
+          <Input />
         </Form.Item>
 
         <Form.Item

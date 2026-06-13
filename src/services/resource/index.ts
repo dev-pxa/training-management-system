@@ -30,6 +30,7 @@ export interface UploadResponse {
   code: number;
   des: string;
   data: {
+    id: number;
     url: string;
   };
 }

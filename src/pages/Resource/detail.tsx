@@ -50,6 +50,7 @@ const ResourceDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(!isAddMode);
   const [uploading, setUploading] = useState(false);
   const [resourceType, setResourceType] = useState<number>(0);
+  const watchedContentUrl = Form.useWatch('contentUrl', form);
 
   useEffect(() => {
     if (!isAddMode) {
@@ -124,7 +125,7 @@ const ResourceDetailPage: React.FC = () => {
       return false;
     }
 
-    const fileSize = file.size / 1024 / 1024;
+    const fileSize = (file.size ?? 0) / 1024 / 1024;
     const maxSize = resourceType === 1 ? 100 : 20;
     if (fileSize > maxSize) {
       message.error(`文件大小不能超过${maxSize}MB`);
@@ -162,7 +163,7 @@ const ResourceDetailPage: React.FC = () => {
     return <div>加载中...</div>;
   }
 
-  const contentUrl = form.getFieldValue('contentUrl');
+  const contentUrl = watchedContentUrl;
   const isImage = resourceType === 0 && contentUrl;
   const isVideo = resourceType === 1 && contentUrl;
   const isPdf = resourceType === 2 && contentUrl;
@@ -207,7 +208,7 @@ const ResourceDetailPage: React.FC = () => {
             <Input type="hidden" />
           </Form.Item>
           <Form.Item label=" ">
-            {editable ? (
+            {editable && (
               <Dragger
                 accept={allowedFileTypes[resourceType].join(',')}
                 beforeUpload={beforeUpload}
@@ -241,8 +242,10 @@ const ResourceDetailPage: React.FC = () => {
                   {resourceType === 1 ? '（最大100MB）' : '（最大20MB）'}
                 </p>
               </Dragger>
-            ) : (
-              <div>
+            )}
+
+            {contentUrl && (
+              <div style={{ marginTop: editable ? 16 : 0 }}>
                 {isImage && (
                   <div>
                     <Image

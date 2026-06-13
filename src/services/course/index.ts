@@ -1,5 +1,17 @@
 import { request } from '@umijs/max';
 
+export interface CourseResourceRef {
+  id?: number;
+  name?: string;
+  contentUrl: string;
+  type?: number;
+}
+
+export interface CourseTestInfo {
+  id?: number;
+  name?: string;
+}
+
 export interface CourseListItem {
   id: string;
   name: string;
@@ -7,13 +19,15 @@ export interface CourseListItem {
   type: number;
   owner: string;
   hasTest: boolean;
-  certificateUrl?: string;
+  coverResource?: CourseResourceRef;
+  certificateResource?: CourseResourceRef;
+  testInfo?: CourseTestInfo;
 }
 
 export interface Chapter {
   name: string;
   desc: string;
-  contentUrl: string;
+  contentResource?: CourseResourceRef;
 }
 
 export interface CourseDetail {
@@ -23,7 +37,9 @@ export interface CourseDetail {
   type: number;
   owner: string;
   hasTest: boolean;
-  certificateUrl?: string;
+  coverResource?: CourseResourceRef;
+  certificateResource?: CourseResourceRef;
+  testInfo?: CourseTestInfo;
   details: Chapter[];
 }
 
