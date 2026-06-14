@@ -4,6 +4,8 @@ declare namespace AuthAPI {
     uname: string;
     phone: string;
     name: string;
+    companyName?: string;
+    avatarUrl?: string;
     permission: 1 | 2;
   }
 

@@ -25,6 +25,8 @@ declare namespace UserAPI {
     username?: string;
     phone?: string;
     name?: string;
+    companyName?: string;
+    avatarUrl?: string;
     permission?: string;
   }
 

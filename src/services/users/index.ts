@@ -40,6 +40,7 @@ export async function addUser(
     phone: string;
     name: string;
     permission: string;
+    avatarUrl?: string;
   },
   options?: { [key: string]: any },
 ) {
@@ -61,6 +62,7 @@ export async function updateUser(
     phone: string;
     name: string;
     permission: string;
+    avatarUrl?: string;
   },
   options?: { [key: string]: any },
 ) {
