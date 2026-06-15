@@ -125,7 +125,9 @@ const ResourceSelector: React.FC<ResourceSelectorProps> = ({
   const selectedResource = filteredResourceList.find((r) => r.id === value?.id);
   const displayResource = selectedResource || currentResource || value;
 
-  const handleResourceModalSuccess = (resource: ResourceListItem) => {
+  const handleResourceModalSuccess = (
+    resource: CourseResourceRef | ResourceListItem,
+  ) => {
     setCurrentResource(resource);
 
     if (onChange) {

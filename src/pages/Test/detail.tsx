@@ -125,13 +125,23 @@ const TestDetailPage: React.FC = () => {
       }
     }
 
+    const totalScore = questions.reduce(
+      (sum, question) => sum + Number(question.score || 0),
+      0,
+    );
+    const passScore = Number(values.passScore);
+    if (passScore > totalScore) {
+      message.error(`通过分数不能大于题目总分（当前总分${totalScore}分）`);
+      return;
+    }
+
     try {
       const payload = {
         name: values.name,
         desc: values.desc,
         tag: values.tag,
         timeLimit,
-        passScore: Number(values.passScore),
+        passScore,
         questions: questions.map((question) => ({
           ...question,
           score: Number(question.score),

@@ -77,6 +77,24 @@ export async function updateUser(
   });
 }
 
+/** 修改当前登录用户密码 PUT /api/user/password */
+export async function updateUserPassword(
+  body: {
+    oldPassword: string;
+    newPassword: string;
+  },
+  options?: { [key: string]: any },
+) {
+  return request('/api/user/password', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  });
+}
+
 /** 删除人员 DELETE /api/users */
 export async function deleteUser(
   body: {

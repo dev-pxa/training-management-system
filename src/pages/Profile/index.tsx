@@ -1,7 +1,7 @@
 import { uploadResourceFile } from '@/services/resource';
-import { updateUser } from '@/services/users';
+import { updateUser, updateUserPassword } from '@/services/users';
 import { handleApiResponse } from '@/utils/response';
-import { UploadOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useModel } from '@umijs/max';
 import {
@@ -15,19 +15,42 @@ import {
   Upload,
   UploadFile,
 } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const { Dragger } = Upload;
 
 const allowedAvatarTypes = ['.png', '.jpg', '.jpeg', '.webp'];
 
+const validatePasswordStrength = (password?: string) => {
+  if (!password || password.length < 6) {
+    return false;
+  }
+
+  const checks = [
+    /[A-Z]/.test(password),
+    /[a-z]/.test(password),
+    /\d/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ];
+
+  return checks.filter(Boolean).length >= 3;
+};
+
 const ProfilePage: React.FC = () => {
-  const { initialState, refresh } = useModel('@@initialState');
+  const { initialState, refresh, setInitialState } = useModel('@@initialState');
   const currentUser = initialState?.currentUser;
   const [form] = Form.useForm();
+  const [passwordForm] = Form.useForm();
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>();
   const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string>();
+
+  useEffect(() => {
+    setAvatarUrl(currentUser?.avatarUrl);
+  }, [currentUser?.avatarUrl]);
 
   if (!currentUser) {
     history.push('/login');
@@ -40,13 +63,13 @@ const ProfilePage: React.FC = () => {
       phone: string;
       name: string;
     }>,
-    avatarUrl?: string,
+    profileAvatarUrl = avatarUrl ?? currentUser.avatarUrl,
   ) => ({
     uname: values.uname || currentUser.uname,
     phone: values.phone || currentUser.phone,
     name: values.name || currentUser.name,
     permission: String(currentUser.permission),
-    avatarUrl,
+    avatarUrl: profileAvatarUrl,
   });
 
   const handleSubmit = async (values: {
@@ -55,11 +78,17 @@ const ProfilePage: React.FC = () => {
     name: string;
   }) => {
     try {
-      const res = await updateUser(
-        String(currentUser.id),
-        buildProfilePayload(values, currentUser.avatarUrl),
-      );
+      const payload = buildProfilePayload(values);
+      const res = await updateUser(String(currentUser.id), payload);
       if (handleApiResponse(res)) {
+        setInitialState?.((state: { currentUser?: AuthAPI.UserInfo }) => ({
+          ...state,
+          currentUser: {
+            ...currentUser,
+            ...payload,
+            permission: currentUser.permission,
+          },
+        }));
         refresh();
       }
     } catch (error: any) {
@@ -68,13 +97,23 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleOpenAvatarModal = () => {
-    setPendingAvatarUrl(currentUser.avatarUrl);
+    setPendingAvatarUrl(avatarUrl);
     setAvatarModalOpen(true);
   };
 
   const handleCancelAvatarModal = () => {
     setAvatarModalOpen(false);
     setPendingAvatarUrl(undefined);
+  };
+
+  const handleOpenPasswordModal = () => {
+    passwordForm.resetFields();
+    setPasswordModalOpen(true);
+  };
+
+  const handleCancelPasswordModal = () => {
+    setPasswordModalOpen(false);
+    passwordForm.resetFields();
   };
 
   const beforeAvatarUpload = (file: UploadFile) => {
@@ -129,19 +168,61 @@ const ProfilePage: React.FC = () => {
     setAvatarSaving(true);
     try {
       const values = form.getFieldsValue();
-      const res = await updateUser(
-        String(currentUser.id),
-        buildProfilePayload(values, pendingAvatarUrl),
-      );
+      const payload = buildProfilePayload(values, pendingAvatarUrl);
+      const res = await updateUser(String(currentUser.id), payload);
       if (handleApiResponse(res)) {
+        setAvatarUrl(pendingAvatarUrl);
+        setInitialState?.((state: { currentUser?: AuthAPI.UserInfo }) => ({
+          ...state,
+          currentUser: {
+            ...currentUser,
+            ...payload,
+            permission: currentUser.permission,
+          },
+        }));
         setAvatarModalOpen(false);
         setPendingAvatarUrl(undefined);
-        await refresh();
       }
     } catch (error: any) {
       message.error(error?.message || '头像保存失败');
     } finally {
       setAvatarSaving(false);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    try {
+      const values = await passwordForm.validateFields();
+
+      if (values.newPassword !== values.confirmPassword) {
+        message.error('两次输入的新密码不一致');
+        return;
+      }
+
+      if (!validatePasswordStrength(values.newPassword)) {
+        message.error(
+          '新密码长度不能低于6位，且需包含大写字母、小写字母、数字和特殊符号中的至少三种',
+        );
+        return;
+      }
+
+      setPasswordSaving(true);
+      const res = await updateUserPassword({
+        oldPassword: values.oldPassword,
+        newPassword: values.newPassword,
+      });
+
+      if (handleApiResponse(res)) {
+        message.success('密码修改成功');
+        handleCancelPasswordModal();
+      }
+    } catch (error: any) {
+      if (error?.errorFields) {
+        return;
+      }
+      message.error(error?.message || '密码修改失败');
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -207,9 +288,9 @@ const ProfilePage: React.FC = () => {
         </div>
 
         <div style={{ width: 180, textAlign: 'center' }}>
-          {currentUser.avatarUrl ? (
+          {avatarUrl ? (
             <Image
-              src={currentUser.avatarUrl}
+              src={avatarUrl}
               alt="头像"
               style={{
                 width: 120,
@@ -217,7 +298,7 @@ const ProfilePage: React.FC = () => {
                 borderRadius: '50%',
                 objectFit: 'cover',
               }}
-              preview={{ src: currentUser.avatarUrl }}
+              preview={{ src: avatarUrl }}
             />
           ) : (
             <Avatar size={120} icon={<UserOutlined />} />
@@ -228,6 +309,13 @@ const ProfilePage: React.FC = () => {
             onClick={handleOpenAvatarModal}
           >
             更换头像
+          </Button>
+          <Button
+            style={{ marginTop: 12 }}
+            icon={<LockOutlined />}
+            onClick={handleOpenPasswordModal}
+          >
+            修改密码
           </Button>
         </div>
       </div>
@@ -270,6 +358,41 @@ const ProfilePage: React.FC = () => {
             />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title="修改密码"
+        open={passwordModalOpen}
+        onCancel={handleCancelPasswordModal}
+        onOk={handleSavePassword}
+        confirmLoading={passwordSaving}
+        destroyOnClose
+      >
+        <Form form={passwordForm} layout="vertical" autoComplete="off">
+          <Form.Item
+            name="oldPassword"
+            label="原密码"
+            rules={[{ required: true, message: '请输入原密码' }]}
+          >
+            <Input.Password placeholder="请输入原密码" />
+          </Form.Item>
+
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[{ required: true, message: '请输入新密码' }]}
+          >
+            <Input.Password placeholder="请输入新密码" />
+          </Form.Item>
+
+          <Form.Item
+            name="confirmPassword"
+            label="确认新密码"
+            rules={[{ required: true, message: '请再次输入新密码' }]}
+          >
+            <Input.Password placeholder="请再次输入新密码" />
+          </Form.Item>
+        </Form>
       </Modal>
     </PageContainer>
   );
