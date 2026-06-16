@@ -36,7 +36,7 @@ export async function getUserDetail(
 /** 添加人员 POST /api/user */
 export async function addUser(
   body: {
-    uname: string;
+    uname?: string;
     phone: string;
     name: string;
     permission: string;
@@ -50,6 +50,21 @@ export async function addUser(
       'Content-Type': 'application/json',
     },
     data: body,
+    ...(options || {}),
+  });
+}
+
+/** 批量导入人员 POST /api/users/import */
+export async function importUsers(
+  file: File,
+  options?: { [key: string]: any },
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return request('/api/users/import', {
+    method: 'POST',
+    data: formData,
     ...(options || {}),
   });
 }
