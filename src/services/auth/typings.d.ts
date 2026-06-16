@@ -6,7 +6,7 @@ declare namespace AuthAPI {
     name: string;
     companyName?: string;
     avatarUrl?: string;
-    permission: 1 | 2;
+    permission: 0 | 1;
   }
 
   interface Company {

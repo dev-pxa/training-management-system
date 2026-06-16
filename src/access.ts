@@ -1,4 +1,4 @@
 export default (initialState: { currentUser?: AuthAPI.UserInfo }) => {
-  const isAdmin = initialState?.currentUser?.permission === 2;
+  const isAdmin = Number(initialState?.currentUser?.permission) === 1;
   return { isAdmin };
 };
