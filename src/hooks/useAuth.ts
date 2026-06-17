@@ -5,7 +5,7 @@ export default function useAuth() {
 
   const currentUser = initialState?.currentUser;
   const isLoggedIn = !!currentUser;
-  const isAdmin = Number(currentUser?.permission) === 1;
+  const isAdmin = Number(currentUser?.permission) === 2;
 
   const logout = () => {
     refresh();

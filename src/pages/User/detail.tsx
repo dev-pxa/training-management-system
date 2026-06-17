@@ -183,8 +183,8 @@ const UserDetailPage: React.FC = () => {
             rules={[{ required: true, message: '请选择权限' }]}
           >
             <Select disabled={!editable} placeholder="请选择权限">
-              <Option value={0}>用户</Option>
-              <Option value={1}>管理员</Option>
+              <Option value={1}>用户</Option>
+              <Option value={2}>管理员</Option>
             </Select>
           </Form.Item>
 

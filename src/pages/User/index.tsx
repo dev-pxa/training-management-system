@@ -76,14 +76,14 @@ const UserPage: React.FC = () => {
       key: 'permission',
       valueType: 'select',
       valueEnum: {
-        0: { text: '用户' },
-        1: { text: '管理员' },
+        1: { text: '用户' },
+        2: { text: '管理员' },
       },
       search: {
         show: true,
         valueEnum: {
-          0: { text: '用户' },
-          1: { text: '管理员' },
+          1: { text: '用户' },
+          2: { text: '管理员' },
         },
       },
     },
