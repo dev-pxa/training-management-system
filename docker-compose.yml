@@ -1,0 +1,14 @@
+services:
+  training-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: training-web:latest
+    container_name: training-web
+    ports:
+      - "${WEB_PORT:-80}:80"
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:8080}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
