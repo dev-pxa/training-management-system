@@ -4,20 +4,95 @@ import {
   getResourceList,
 } from '@/services/resource';
 import { handleApiResponse } from '@/utils/response';
-import { PlusOutlined } from '@ant-design/icons';
+import { EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   ActionType,
   FooterToolbar,
   PageContainer,
   ProTable,
 } from '@ant-design/pro-components';
+import { SpecialZoomLevel, Viewer, Worker } from '@react-pdf-viewer/core';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Link, Outlet, history } from '@umijs/max';
-import { Button, Popconfirm, message } from 'antd';
+import { Button, Empty, Image, Modal, Popconfirm, message } from 'antd';
 import React, { useRef, useState } from 'react';
+
+const pdfWorkerUrl = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
+
+const resourceTypeLabels: Record<number, string> = {
+  0: '图片资源',
+  1: '视频资源',
+  2: 'PDF资源',
+};
+
+const PdfPreview: React.FC<{ fileUrl: string }> = ({ fileUrl }) => {
+  const defaultLayoutPluginInstance = defaultLayoutPlugin();
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '70vh',
+        border: '1px solid #f0f0f0',
+        borderRadius: 4,
+        overflow: 'hidden',
+      }}
+    >
+      <Worker workerUrl={pdfWorkerUrl}>
+        <Viewer
+          fileUrl={fileUrl}
+          defaultScale={SpecialZoomLevel.PageWidth}
+          plugins={[defaultLayoutPluginInstance]}
+        />
+      </Worker>
+    </div>
+  );
+};
+
+const renderPreviewContent = (resource?: ResourceListItem) => {
+  if (!resource?.contentUrl) {
+    return <Empty description="暂无可预览内容" />;
+  }
+
+  if (resource.type === 0) {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <Image
+          src={resource.contentUrl}
+          alt={resource.name}
+          style={{ maxWidth: '100%', maxHeight: '70vh' }}
+          preview={{ src: resource.contentUrl }}
+        />
+      </div>
+    );
+  }
+
+  if (resource.type === 1) {
+    return (
+      <video
+        src={resource.contentUrl}
+        controls
+        style={{ width: '100%', maxHeight: '70vh' }}
+      />
+    );
+  }
+
+  if (resource.type === 2) {
+    return <PdfPreview fileUrl={resource.contentUrl} />;
+  }
+
+  return <Empty description="暂不支持预览该资源类型" />;
+};
 
 const ResourcePage: React.FC = () => {
   const actionRef = useRef<ActionType>();
   const [selectedRows, setSelectedRows] = useState<ResourceListItem[]>([]);
+  const [previewResource, setPreviewResource] = useState<ResourceListItem>();
 
   const handleDelete = async (id: number) => {
     const res = await deleteResource({ ids: [id] });
@@ -39,7 +114,7 @@ const ResourcePage: React.FC = () => {
     history.push('/resource/add');
   };
 
-  const columns = [
+  const columns: any[] = [
     {
       title: '资源名称',
       dataIndex: 'name',
@@ -72,9 +147,17 @@ const ResourcePage: React.FC = () => {
       title: '资源内容',
       dataIndex: 'contentUrl',
       key: 'contentUrl',
-      valueType: 'text',
-      ellipsis: true,
       hideInSearch: true,
+      render: (_: any, record: ResourceListItem) => (
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          disabled={!record.contentUrl}
+          onClick={() => setPreviewResource(record)}
+        >
+          预览
+        </Button>
+      ),
     },
     {
       title: '作者',
@@ -151,7 +234,10 @@ const ResourcePage: React.FC = () => {
           const res = await getResourceList({
             queryInfo: {
               name: params.name,
-              type: params.type !== undefined ? Number(params.type) : undefined,
+              type:
+                params.type !== undefined
+                  ? String(Number(params.type))
+                  : undefined,
               owner: params.owner,
             },
             pageSize: 10,
@@ -198,6 +284,24 @@ const ResourcePage: React.FC = () => {
           </Popconfirm>
         </FooterToolbar>
       )}
+      <Modal
+        title={
+          previewResource
+            ? `${previewResource.name}（${
+                resourceTypeLabels[previewResource.type] || '资源'
+              }）`
+            : '资源预览'
+        }
+        open={!!previewResource}
+        footer={null}
+        width={900}
+        destroyOnClose
+        onCancel={() => setPreviewResource(undefined)}
+      >
+        <div style={{ minHeight: 360 }}>
+          {renderPreviewContent(previewResource)}
+        </div>
+      </Modal>
     </PageContainer>
   );
 };

@@ -87,8 +87,16 @@ export default defineConfig({
   /* ==================== 以下代理配置，仅用于开发环境，上线前请删除 ==================== */
   // #region 代理配置
   proxy: {
+    // '/api': {
+    //   target: 'http://127.0.0.1:4523/m1/8000488-7754565-default',
+    //   changeOrigin: true,
+    // },
+    // '/api': {
+    //   target: 'http://127.0.0.1:8080',
+    //   changeOrigin: true,
+    // },
     '/api': {
-      target: 'http://127.0.0.1:4523/m1/8000488-7754565-default',
+      target: 'http://49.232.34.105:8080',
       changeOrigin: true,
     },
   },
