@@ -1,4 +1,9 @@
-import { CourseListItem, deleteCourse, getCourseList } from '@/services/course';
+import {
+  CourseListItem,
+  deleteCourse,
+  getCourseList,
+  updateCourseOnlineStatus,
+} from '@/services/course';
 import { handleApiResponse } from '@/utils/response';
 import { PlusOutlined } from '@ant-design/icons';
 import {
@@ -8,7 +13,7 @@ import {
   ProTable,
 } from '@ant-design/pro-components';
 import { Link, Outlet, history } from '@umijs/max';
-import { Button, Popconfirm, message } from 'antd';
+import { Button, Modal, Popconfirm, Tag, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
 const CoursePage: React.FC = () => {
@@ -35,7 +40,38 @@ const CoursePage: React.FC = () => {
     history.push('/course/add');
   };
 
-  const columns = [
+  const handleOnlineStatusChange = async (
+    record: CourseListItem,
+    isOnline: boolean,
+  ) => {
+    const res = await updateCourseOnlineStatus({
+      id: record.id,
+      isOnline,
+    });
+    if (handleApiResponse(res, isOnline ? '上线成功' : '下线成功')) {
+      actionRef.current?.reload();
+    }
+  };
+
+  const handleConfirmOnlineStatusChange = (
+    record: CourseListItem,
+    isOnline: boolean,
+  ) => {
+    Modal.confirm({
+      title: isOnline ? '确定要上线该课程吗？' : '确定要下线该课程吗？',
+      content: isOnline
+        ? '上线后学员将可以看到该课程。'
+        : '下线后学员将无法在课程列表中看到该课程。',
+      okText: '确定',
+      cancelText: '取消',
+      okButtonProps: {
+        danger: !isOnline,
+      },
+      onOk: () => handleOnlineStatusChange(record, isOnline),
+    });
+  };
+
+  const columns: any[] = [
     {
       title: '课程/系列名称',
       dataIndex: 'name',
@@ -98,35 +134,70 @@ const CoursePage: React.FC = () => {
       },
     },
     {
+      title: '上架状态',
+      dataIndex: 'isOnline',
+      key: 'isOnline',
+      valueType: 'select',
+      width: 100,
+      search: {
+        show: true,
+        valueEnum: {
+          true: { text: '已上线' },
+          false: { text: '未上线' },
+        },
+      },
+      valueEnum: {
+        true: { text: '已上线' },
+        false: { text: '未上线' },
+      },
+      render: (_: any, record: CourseListItem) =>
+        record.isOnline ? (
+          <Tag color="green">已上线</Tag>
+        ) : (
+          <Tag color="red">未上线</Tag>
+        ),
+    },
+    {
       title: '操作',
       key: 'action',
       valueType: 'option',
-      width: 280,
+      width: 340,
       hideInSearch: true,
-      render: (_: any, record: CourseListItem) => (
-        <div>
-          <Link to={`/course/detail/${record.id}?editable=false`}>
-            <Button type="link" style={{ marginRight: 8 }}>
-              详情
+      render: (_: any, record: CourseListItem) => {
+        const isOnline = !!record.isOnline;
+        return (
+          <div>
+            <Link to={`/course/detail/${record.id}?editable=false`}>
+              <Button type="link" style={{ marginRight: 8 }}>
+                详情
+              </Button>
+            </Link>
+            <Link to={`/course/detail/${record.id}?editable=true`}>
+              <Button type="link" style={{ marginRight: 8 }}>
+                编辑
+              </Button>
+            </Link>
+            <Button
+              type="link"
+              style={{ marginRight: 8 }}
+              danger={isOnline}
+              onClick={() => handleConfirmOnlineStatusChange(record, !isOnline)}
+            >
+              {isOnline ? '下线' : '上线'}
             </Button>
-          </Link>
-          <Link to={`/course/detail/${record.id}?editable=true`}>
-            <Button type="link" style={{ marginRight: 8 }}>
-              编辑
-            </Button>
-          </Link>
-          <Popconfirm
-            title="确定要删除吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" danger>
-              删除
-            </Button>
-          </Popconfirm>
-        </div>
-      ),
+            <Popconfirm
+              title="确定要删除吗？"
+              onConfirm={() => handleDelete(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button type="link" danger>
+                删除
+              </Button>
+            </Popconfirm>
+          </div>
+        );
+      },
     },
   ];
 
@@ -167,6 +238,10 @@ const CoursePage: React.FC = () => {
               hasTest:
                 params.hasTest !== undefined
                   ? params.hasTest === 'true' || params.hasTest === true
+                  : undefined,
+              isOnline:
+                params.isOnline !== undefined
+                  ? params.isOnline === 'true' || params.isOnline === true
                   : undefined,
               owner: params.owner,
             },

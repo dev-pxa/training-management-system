@@ -19,6 +19,7 @@ export interface CourseListItem {
   type: number;
   owner: string;
   hasTest: boolean;
+  isOnline?: boolean;
   coverResource?: CourseResourceRef;
   certificateResource?: CourseResourceRef;
   testInfo?: CourseTestInfo;
@@ -48,6 +49,7 @@ export interface CourseListRequest {
     name?: string;
     type?: number;
     hasTest?: boolean;
+    isOnline?: boolean;
     owner?: string;
   };
   pageSize: number;
@@ -117,6 +119,21 @@ export async function updateCourse(
       'Content-Type': 'application/json',
     },
     params: { id },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+/** 修改课程上下线状态 PUT /api/course/online */
+export async function updateCourseOnlineStatus(
+  body: { id: string | number; isOnline: boolean },
+  options?: { [key: string]: any },
+) {
+  return request('/api/course/online', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
     data: body,
     ...(options || {}),
   });
