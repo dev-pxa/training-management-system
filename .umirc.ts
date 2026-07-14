@@ -6,6 +6,7 @@ export default defineConfig({
   model: {},
   initialState: {},
   request: {},
+  hash: true,
   layout: {
     title: '培训管理系统',
   },
