@@ -2,6 +2,7 @@ import {
   addTest,
   ChoiceQuestion,
   FillQuestion,
+  generateTestQuestions,
   getTestDetail,
   Question,
   QUESTION_TYPE_CHOICE,
@@ -13,6 +14,8 @@ import {
   DeleteOutlined,
   MinusCircleOutlined,
   PlusOutlined,
+  RobotOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useLocation, useParams } from '@umijs/max';
@@ -23,14 +26,26 @@ import {
   Input,
   InputNumber,
   message,
+  Modal,
   Radio,
   Space,
   Typography,
+  Upload,
 } from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
 import React, { useEffect, useState } from 'react';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+
+const ACCEPTED_AI_FILE_EXTENSIONS = ['doc', 'docx', 'pdf'];
+
+const normalizeUploadFileList = (event: any) => {
+  if (Array.isArray(event)) {
+    return event;
+  }
+  return event?.fileList;
+};
 
 const TestDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +53,10 @@ const TestDetailPage: React.FC = () => {
   const isAddMode = location.pathname === '/test/add';
   const editable = isAddMode || location.search.includes('editable=true');
   const [form] = Form.useForm();
+  const [aiForm] = Form.useForm();
   const [loading, setLoading] = useState(!isAddMode);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
@@ -156,6 +174,67 @@ const TestDetailPage: React.FC = () => {
       }
     } catch (error: any) {
       message.error(error?.message || '操作失败');
+    }
+  };
+
+  const openAiGenerateModal = () => {
+    aiForm.setFieldsValue({
+      choiceCount: 5,
+      fillCount: 5,
+      score: 5,
+      file: [],
+    });
+    setAiModalOpen(true);
+  };
+
+  const closeAiGenerateModal = () => {
+    if (aiGenerating) {
+      return;
+    }
+    setAiModalOpen(false);
+  };
+
+  const handleAiGenerate = async () => {
+    try {
+      const values = await aiForm.validateFields();
+      const fileList: UploadFile[] = values.file || [];
+      const file = fileList[0]?.originFileObj;
+
+      if (!file) {
+        message.error('请上传Word或PDF文档');
+        return;
+      }
+
+      setAiGenerating(true);
+      const score = Number(values.score || 5);
+      const res = await generateTestQuestions({
+        file,
+        choiceCount: Number(values.choiceCount || 0),
+        fillCount: Number(values.fillCount || 0),
+        score,
+      });
+
+      if (res?.code === 0) {
+        const generatedQuestions: Question[] = res?.data?.questions || [];
+        setQuestions(
+          generatedQuestions.map((question) => ({
+            ...question,
+            score,
+          })),
+        );
+        message.success(`AI已生成${generatedQuestions.length}道题目`);
+        setAiModalOpen(false);
+        aiForm.resetFields();
+      } else {
+        message.error(res?.des || res?.desc || 'AI生成题目失败');
+      }
+    } catch (error: any) {
+      if (error?.errorFields) {
+        return;
+      }
+      message.error(error?.message || 'AI生成题目失败');
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -369,6 +448,13 @@ const TestDetailPage: React.FC = () => {
                     onClick={addFillQuestion}
                   >
                     添加填空题
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<RobotOutlined />}
+                    onClick={openAiGenerateModal}
+                  >
+                    AI智能生成题目
                   </Button>
                 </Space>
               )}
@@ -600,6 +686,107 @@ const TestDetailPage: React.FC = () => {
           )}
         </Form>
       </div>
+      <Modal
+        title="AI智能生成题目"
+        open={aiModalOpen}
+        confirmLoading={aiGenerating}
+        okText="确定"
+        cancelText="取消"
+        onOk={handleAiGenerate}
+        onCancel={closeAiGenerateModal}
+        maskClosable={!aiGenerating}
+        destroyOnClose
+      >
+        <Form
+          form={aiForm}
+          layout="vertical"
+          initialValues={{
+            choiceCount: 5,
+            fillCount: 5,
+            score: 5,
+          }}
+        >
+          <Form.Item
+            name="file"
+            label="文档"
+            valuePropName="fileList"
+            getValueFromEvent={normalizeUploadFileList}
+            rules={[{ required: true, message: '请上传Word或PDF文档' }]}
+          >
+            <Upload
+              accept=".doc,.docx,.pdf"
+              maxCount={1}
+              beforeUpload={(file) => {
+                const extension = file.name.split('.').pop()?.toLowerCase();
+                if (
+                  !extension ||
+                  !ACCEPTED_AI_FILE_EXTENSIONS.includes(extension)
+                ) {
+                  message.error('仅支持上传Word或PDF文档');
+                  return Upload.LIST_IGNORE;
+                }
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />}>上传Word或PDF文档</Button>
+            </Upload>
+          </Form.Item>
+
+          <Form.Item
+            name="choiceCount"
+            label="选择题数量"
+            rules={[{ required: true, message: '请输入选择题数量' }]}
+          >
+            <InputNumber
+              min={0}
+              precision={0}
+              style={{ width: '100%' }}
+              placeholder="请输入选择题数量"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="fillCount"
+            label="填空题数量"
+            dependencies={['choiceCount']}
+            rules={[
+              { required: true, message: '请输入填空题数量' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const choiceCount = Number(getFieldValue('choiceCount') || 0);
+                  const fillCount = Number(value || 0);
+                  if (choiceCount + fillCount <= 0) {
+                    return Promise.reject(
+                      new Error('选择题和填空题数量不能同时为0'),
+                    );
+                  }
+                  return Promise.resolve();
+                },
+              }),
+            ]}
+          >
+            <InputNumber
+              min={0}
+              precision={0}
+              style={{ width: '100%' }}
+              placeholder="请输入填空题数量"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="score"
+            label="每题分数"
+            rules={[{ required: true, message: '请输入每题分数' }]}
+          >
+            <InputNumber
+              min={1}
+              precision={0}
+              style={{ width: '100%' }}
+              placeholder="请输入每题分数"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   );
 };

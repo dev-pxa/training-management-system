@@ -59,6 +59,13 @@ export interface TestListRequest {
   pageNum: number;
 }
 
+export interface GenerateTestQuestionsPayload {
+  file: File;
+  choiceCount: number;
+  fillCount: number;
+  score: number;
+}
+
 /** 获取测试列表 GET /api/tests */
 export async function getTestList(
   params: TestListRequest,
@@ -67,6 +74,24 @@ export async function getTestList(
   return request('/api/tests', {
     method: 'GET',
     params,
+    ...(options || {}),
+  });
+}
+
+/** AI生成题目 POST /api/test/questions/generate */
+export async function generateTestQuestions(
+  payload: GenerateTestQuestionsPayload,
+  options?: { [key: string]: any },
+) {
+  const formData = new FormData();
+  formData.append('file', payload.file);
+  formData.append('choiceCount', String(payload.choiceCount));
+  formData.append('fillCount', String(payload.fillCount));
+  formData.append('score', String(payload.score));
+
+  return request('/api/test/questions/generate', {
+    method: 'POST',
+    data: formData,
     ...(options || {}),
   });
 }
