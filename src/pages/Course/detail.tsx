@@ -38,6 +38,7 @@ const formatResource = (resource?: CourseResourceRef) =>
         name: resource.name,
         contentUrl: resource.contentUrl,
         type: resource.type,
+        duration: resource.duration,
       }
     : undefined;
 

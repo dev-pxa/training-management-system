@@ -5,6 +5,7 @@ export interface CourseResourceRef {
   name?: string;
   contentUrl: string;
   type?: number;
+  duration?: number;
 }
 
 export interface CourseTestInfo {

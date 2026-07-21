@@ -64,6 +64,7 @@ const ResourceDetailPage: React.FC = () => {
               name: data.name,
               contentUrl: data.contentUrl,
               type: data.type,
+              duration: data.duration,
             });
           } else if (res?.code !== 0) {
             message.error(res?.des || res?.desc || '获取资源信息失败');
@@ -80,7 +81,7 @@ const ResourceDetailPage: React.FC = () => {
 
   const handleTypeChange = (value: number) => {
     setResourceType(value);
-    form.setFieldsValue({ contentUrl: undefined });
+    form.setFieldsValue({ contentUrl: undefined, duration: undefined });
   };
 
   const handleFileUpload = async (options: any) => {
@@ -96,7 +97,10 @@ const ResourceDetailPage: React.FC = () => {
       const res = await uploadResourceFile(file as File);
       if (res.code === 0 && res.data?.url) {
         message.success('上传成功');
-        form.setFieldsValue({ contentUrl: res.data.url });
+        form.setFieldsValue({
+          contentUrl: res.data.url,
+          duration: res.data.duration,
+        });
         onSuccess?.();
       } else {
         const errorMsg = res?.des || '上传失败';
@@ -142,12 +146,14 @@ const ResourceDetailPage: React.FC = () => {
           name: values.name,
           contentUrl: values.contentUrl,
           type: values.type,
+          duration: values.duration,
         });
       } else {
         res = await updateResource(id as unknown as number, {
           name: values.name,
           contentUrl: values.contentUrl,
           type: values.type,
+          duration: values.duration,
         });
       }
 
@@ -206,6 +212,9 @@ const ResourceDetailPage: React.FC = () => {
             rules={[{ required: true, message: '请上传资源文件' }]}
           >
             <Input type="hidden" />
+          </Form.Item>
+          <Form.Item name="duration" hidden>
+            <Input />
           </Form.Item>
           <Form.Item label=" ">
             {editable && (

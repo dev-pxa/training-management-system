@@ -71,6 +71,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
           name: initialResource.name,
           contentUrl: initialResource.contentUrl,
           type: initialResource.type,
+          duration: initialResource.duration,
         });
       } else {
         const defaultType = getDefaultType();
@@ -85,7 +86,11 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
 
   const handleTypeChange = (value: number) => {
     setResourceType(value);
-    form.setFieldsValue({ resourceId: undefined, contentUrl: undefined });
+    form.setFieldsValue({
+      resourceId: undefined,
+      contentUrl: undefined,
+      duration: undefined,
+    });
   };
 
   const handleFileUpload = async (options: any) => {
@@ -104,6 +109,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         form.setFieldsValue({
           resourceId: res.data.id,
           contentUrl: res.data.url,
+          duration: res.data.duration,
         });
         onSuccess?.();
       } else {
@@ -150,6 +156,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         name: values.name,
         contentUrl: values.contentUrl,
         type: values.type,
+        duration: values.duration,
       };
 
       const res = resourceId
@@ -214,6 +221,9 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
           rules={[{ required: true, message: '请上传资源文件' }]}
         >
           <Input type="hidden" />
+        </Form.Item>
+        <Form.Item name="duration" hidden>
+          <Input />
         </Form.Item>
         <Form.Item label=" ">
           <Dragger

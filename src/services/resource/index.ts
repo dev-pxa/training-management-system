@@ -5,6 +5,7 @@ export interface ResourceListItem {
   name: string;
   contentUrl: string;
   type: number;
+  duration?: number;
   owner?: string;
 }
 
@@ -13,6 +14,7 @@ export interface ResourceDetail {
   name: string;
   contentUrl: string;
   type: number;
+  duration?: number;
   owner?: string;
 }
 
@@ -32,7 +34,15 @@ export interface UploadResponse {
   data: {
     id: number;
     url: string;
+    duration?: number;
   };
+}
+
+export interface ResourcePayload {
+  name: string;
+  contentUrl: string;
+  type: number;
+  duration?: number;
 }
 
 /** 获取资源列表 GET /api/resources */
@@ -88,11 +98,7 @@ export async function uploadResourceFile(
 
 /** 添加资源 POST /api/resource */
 export async function addResource(
-  body: {
-    name: string;
-    contentUrl: string;
-    type: number;
-  },
+  body: ResourcePayload,
   options?: { [key: string]: any },
 ) {
   return request('/api/resource', {
@@ -108,11 +114,7 @@ export async function addResource(
 /** 更新资源 PUT /api/resource?id={id} */
 export async function updateResource(
   id: number,
-  body: {
-    name: string;
-    contentUrl: string;
-    type: number;
-  },
+  body: ResourcePayload,
   options?: { [key: string]: any },
 ) {
   return request('/api/resource', {
