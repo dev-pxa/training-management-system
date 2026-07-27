@@ -4,6 +4,10 @@ import {
   getCourseList,
   updateCourseOnlineStatus,
 } from '@/services/course';
+import {
+  CourseCategoryRef,
+  getCourseCategories,
+} from '@/services/courseCategory';
 import { handleApiResponse } from '@/utils/response';
 import { PlusOutlined } from '@ant-design/icons';
 import {
@@ -14,11 +18,26 @@ import {
 } from '@ant-design/pro-components';
 import { Link, Outlet, history } from '@umijs/max';
 import { Button, Modal, Popconfirm, Tag, message } from 'antd';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const CoursePage: React.FC = () => {
   const actionRef = useRef<ActionType>();
   const [selectedRows, setSelectedRows] = useState<CourseListItem[]>([]);
+  const [categories, setCategories] = useState<CourseCategoryRef[]>([]);
+
+  useEffect(() => {
+    getCourseCategories()
+      .then((res) => {
+        if (res.code === 0 && Array.isArray(res.data)) {
+          setCategories(res.data);
+        } else {
+          message.error(res.des || '获取课程分类失败');
+        }
+      })
+      .catch(() => {
+        message.error('获取课程分类失败');
+      });
+  }, []);
 
   const handleDelete = async (id: string) => {
     const res = await deleteCourse({ ids: [Number(id)] });
@@ -82,14 +101,6 @@ const CoursePage: React.FC = () => {
       },
     },
     {
-      title: '课程简介',
-      dataIndex: 'desc',
-      key: 'desc',
-      valueType: 'text',
-      ellipsis: true,
-      hideInSearch: true,
-    },
-    {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
@@ -114,6 +125,30 @@ const CoursePage: React.FC = () => {
       search: {
         show: true,
       },
+    },
+    {
+      title: '分类',
+      dataIndex: 'categoryId',
+      key: 'categoryId',
+      valueType: 'select',
+      fieldProps: {
+        options: categories.map((category) => ({
+          label: category.name,
+          value: category.id,
+        })),
+        placeholder: '请选择分类',
+        allowClear: true,
+      },
+      render: (_: any, record: CourseListItem) =>
+        record.categories?.length ? (
+          <>
+            {record.categories.map((category) => (
+              <Tag key={category.id}>{category.name}</Tag>
+            ))}
+          </>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '是否需要考试',
@@ -235,6 +270,10 @@ const CoursePage: React.FC = () => {
             queryInfo: {
               name: params.name,
               type: params.type !== undefined ? Number(params.type) : undefined,
+              categoryId:
+                params.categoryId !== undefined
+                  ? Number(params.categoryId)
+                  : undefined,
               hasTest:
                 params.hasTest !== undefined
                   ? params.hasTest === 'true' || params.hasTest === true

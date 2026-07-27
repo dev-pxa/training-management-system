@@ -6,13 +6,27 @@ import {
   getCourseDetail,
   updateCourse,
 } from '@/services/course';
+import {
+  addCourseCategory,
+  CourseCategoryRef,
+  getCourseCategories,
+} from '@/services/courseCategory';
 import { getResourceList, ResourceListItem } from '@/services/resource';
 import { getTestList, TestListItem } from '@/services/test';
 import { handleApiResponse } from '@/utils/response';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history, useLocation, useParams } from '@umijs/max';
-import { Button, Card, Form, Input, message, Select } from 'antd';
+import {
+  Button,
+  Card,
+  Divider,
+  Form,
+  Input,
+  message,
+  Select,
+  Space,
+} from 'antd';
 import React, { useEffect, useState } from 'react';
 
 const { Option } = Select;
@@ -54,6 +68,26 @@ const CourseDetailPage: React.FC = () => {
   const [resourceList, setResourceList] = useState<ResourceListItem[]>([]);
   const [testList, setTestList] = useState<TestListItem[]>([]);
   const [testLoading, setTestLoading] = useState(false);
+  const [categories, setCategories] = useState<CourseCategoryRef[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryCreating, setCategoryCreating] = useState(false);
+
+  const loadCategories = async () => {
+    setCategoryLoading(true);
+    try {
+      const res = await getCourseCategories();
+      if (res.code === 0 && Array.isArray(res.data)) {
+        setCategories(res.data);
+      } else {
+        message.error(res.des || '获取课程分类失败');
+      }
+    } catch (error: any) {
+      message.error(error?.message || '获取课程分类失败');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
 
   const loadResources = async () => {
     try {
@@ -92,6 +126,7 @@ const CourseDetailPage: React.FC = () => {
     // 加载资源列表和测试列表
     loadResources();
     loadTests();
+    loadCategories();
 
     if (!isAddMode && id) {
       const fetchData = async () => {
@@ -99,6 +134,18 @@ const CourseDetailPage: React.FC = () => {
           const res = await getCourseDetail(id);
           if (res.code === 0 && res.data) {
             const data = res.data;
+            const detailCategories = Array.isArray(data.categories)
+              ? data.categories
+              : [];
+            setCategories((current) => {
+              const merged = [...current];
+              detailCategories.forEach((category: CourseCategoryRef) => {
+                if (!merged.some((item) => item.id === category.id)) {
+                  merged.push(category);
+                }
+              });
+              return merged;
+            });
             setCourseType(data.type);
             setChapters(
               Array.isArray(data.details)
@@ -116,6 +163,9 @@ const CourseDetailPage: React.FC = () => {
               name: data.name,
               desc: data.desc,
               type: data.type,
+              categoryIds: detailCategories.map(
+                (category: CourseCategoryRef) => category.id,
+              ),
               owner: data.owner,
               hasTest: data.hasTest,
               coverResource: normalizeResource(
@@ -164,6 +214,7 @@ const CourseDetailPage: React.FC = () => {
       name: values.name,
       desc: values.desc,
       type: values.type,
+      categoryIds: values.categoryIds ?? [],
       hasTest: values.hasTest,
       coverResource: formatResource(values.coverResource),
       certificateResource: formatResource(values.certificateResource),
@@ -254,6 +305,39 @@ const CourseDetailPage: React.FC = () => {
     return options;
   };
 
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      message.warning('请输入分类名称');
+      return;
+    }
+    setCategoryCreating(true);
+    try {
+      const res = await addCourseCategory({ name });
+      if (res.code !== 0 || !res.data) {
+        message.error(res.des || '新增分类失败');
+        return;
+      }
+      const category = res.data as CourseCategoryRef;
+      setCategories((current) =>
+        current.some((item) => item.id === category.id)
+          ? current
+          : [...current, category],
+      );
+      const selectedIds: number[] = form.getFieldValue('categoryIds') ?? [];
+      form.setFieldValue(
+        'categoryIds',
+        Array.from(new Set([...selectedIds, category.id])),
+      );
+      setNewCategoryName('');
+      message.success('分类新增成功');
+    } catch (error: any) {
+      message.error(error?.message || '新增分类失败');
+    } finally {
+      setCategoryCreating(false);
+    }
+  };
+
   if (loading) {
     return <div>加载中...</div>;
   }
@@ -313,6 +397,53 @@ const CourseDetailPage: React.FC = () => {
               <Option value={0}>微课程</Option>
               <Option value={1}>系列课程</Option>
             </Select>
+          </Form.Item>
+
+          <Form.Item name="categoryIds" label="分类">
+            <Select
+              mode="multiple"
+              disabled={!editable}
+              loading={categoryLoading}
+              placeholder="请选择分类（可多选）"
+              allowClear
+              options={categories.map((category) => ({
+                label: category.name,
+                value: category.id,
+              }))}
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  {editable && (
+                    <>
+                      <Divider style={{ margin: '8px 0' }} />
+                      <Space style={{ padding: '0 8px 8px' }}>
+                        <Input
+                          value={newCategoryName}
+                          maxLength={30}
+                          placeholder="输入新分类名称"
+                          onChange={(event) =>
+                            setNewCategoryName(event.target.value)
+                          }
+                          onKeyDown={(event) => event.stopPropagation()}
+                          onPressEnter={(event) => {
+                            event.preventDefault();
+                            handleAddCategory();
+                          }}
+                        />
+                        <Button
+                          type="text"
+                          icon={<PlusOutlined />}
+                          loading={categoryCreating}
+                          onClick={handleAddCategory}
+                        >
+                          新增
+                        </Button>
+                      </Space>
+                    </>
+                  )}
+                </>
+              )}
+            />
           </Form.Item>
 
           {!isAddMode && (

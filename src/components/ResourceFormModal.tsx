@@ -107,10 +107,11 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
       if (res.code === 0 && res.data?.url) {
         message.success('上传成功');
         form.setFieldsValue({
-          resourceId: res.data.id,
           contentUrl: res.data.url,
+          type: res.data.type,
           duration: res.data.duration,
         });
+        setResourceType(res.data.type);
         onSuccess?.();
       } else {
         const errorMsg = res?.des || '上传失败';
@@ -166,10 +167,15 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         return;
       }
 
-      onSuccess({
-        id: resourceId || res.data?.id,
-        ...resourceData,
-      });
+      const savedResource = resourceId
+        ? { id: resourceId, ...resourceData }
+        : res.data;
+      if (!savedResource?.id) {
+        message.error('新增资源失败：接口未返回资源ID');
+        return;
+      }
+
+      onSuccess({ ...resourceData, ...savedResource });
       onCancel();
     } catch (error) {
       console.error('Validation failed:', error);

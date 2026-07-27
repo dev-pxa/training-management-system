@@ -1,3 +1,4 @@
+import type { CourseCategoryRef } from '@/services/courseCategory';
 import { request } from '@umijs/max';
 
 export interface CourseResourceRef {
@@ -18,6 +19,7 @@ export interface CourseListItem {
   name: string;
   desc: string;
   type: number;
+  categories?: CourseCategoryRef[];
   owner: string;
   hasTest: boolean;
   isOnline?: boolean;
@@ -37,6 +39,8 @@ export interface CourseDetail {
   name: string;
   desc: string;
   type: number;
+  categories?: CourseCategoryRef[];
+  categoryIds?: number[];
   owner: string;
   hasTest: boolean;
   coverResource?: CourseResourceRef;
@@ -49,6 +53,7 @@ export interface CourseListRequest {
   queryInfo?: {
     name?: string;
     type?: number;
+    categoryId?: number;
     hasTest?: boolean;
     isOnline?: boolean;
     owner?: string;

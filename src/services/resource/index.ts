@@ -32,10 +32,16 @@ export interface UploadResponse {
   code: number;
   des: string;
   data: {
-    id: number;
     url: string;
+    type: number;
     duration?: number;
   };
+}
+
+export interface ResourceMutationResponse {
+  code: number;
+  des: string;
+  data?: ResourceListItem;
 }
 
 export interface ResourcePayload {
@@ -101,7 +107,7 @@ export async function addResource(
   body: ResourcePayload,
   options?: { [key: string]: any },
 ) {
-  return request('/api/resource', {
+  return request<ResourceMutationResponse>('/api/resource', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
