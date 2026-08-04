@@ -83,6 +83,13 @@ export default defineConfig({
       path: '/test/detail/:id',
       component: './Test/detail',
     },
+    {
+      name: '证书验伪',
+      icon: 'SafetyCertificateOutlined',
+      path: '/certificate-verify',
+      component: './CertificateVerify',
+      access: 'isAdmin',
+    },
   ],
 
   /* ==================== 以下代理配置，仅用于开发环境，上线前请删除 ==================== */
