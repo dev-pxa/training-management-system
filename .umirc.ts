@@ -56,6 +56,23 @@ export default defineConfig({
       component: './Course/detail',
     },
     {
+      name: '产品管理',
+      icon: 'ShoppingOutlined',
+      path: '/product',
+      component: './Product',
+      access: 'isAdmin',
+    },
+    {
+      path: '/product/add',
+      component: './Product/detail',
+      access: 'isAdmin',
+    },
+    {
+      path: '/product/detail/:id',
+      component: './Product/detail',
+      access: 'isAdmin',
+    },
+    {
       name: '资源管理',
       icon: 'FolderOutlined',
       path: '/resource',
