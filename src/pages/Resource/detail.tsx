@@ -19,6 +19,7 @@ import {
   Input,
   message,
   Select,
+  Switch,
   Typography,
   Upload,
   UploadFile,
@@ -65,6 +66,7 @@ const ResourceDetailPage: React.FC = () => {
               contentUrl: data.contentUrl,
               type: data.type,
               duration: data.duration,
+              downloadable: data.downloadable ?? true,
             });
           } else if (res?.code !== 0) {
             message.error(res?.des || res?.desc || '获取资源信息失败');
@@ -147,6 +149,7 @@ const ResourceDetailPage: React.FC = () => {
           contentUrl: values.contentUrl,
           type: values.type,
           duration: values.duration,
+          downloadable: values.downloadable ?? true,
         });
       } else {
         res = await updateResource(id as unknown as number, {
@@ -154,6 +157,7 @@ const ResourceDetailPage: React.FC = () => {
           contentUrl: values.contentUrl,
           type: values.type,
           duration: values.duration,
+          downloadable: values.downloadable ?? true,
         });
       }
 
@@ -181,13 +185,31 @@ const ResourceDetailPage: React.FC = () => {
       }}
     >
       <div style={{ maxWidth: 600 }}>
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{ downloadable: true }}
+          onFinish={handleSubmit}
+        >
           <Form.Item
             name="name"
             label="资源名称"
             rules={[{ required: true, message: '请输入资源名称' }]}
           >
             <Input disabled={!editable} placeholder="请输入资源名称" />
+          </Form.Item>
+
+          <Form.Item
+            name="downloadable"
+            label="是否可下载"
+            valuePropName="checked"
+            tooltip="关闭后，App 课程章节中的图片和 PDF 仅支持预览"
+          >
+            <Switch
+              checkedChildren="允许"
+              unCheckedChildren="禁止"
+              disabled={!editable}
+            />
           </Form.Item>
 
           <Form.Item

@@ -6,6 +6,7 @@ export interface ResourceListItem {
   contentUrl: string;
   type: number;
   duration?: number;
+  downloadable: boolean;
   owner?: string;
 }
 
@@ -15,6 +16,7 @@ export interface ResourceDetail {
   contentUrl: string;
   type: number;
   duration?: number;
+  downloadable: boolean;
   owner?: string;
 }
 
@@ -49,6 +51,7 @@ export interface ResourcePayload {
   contentUrl: string;
   type: number;
   duration?: number;
+  downloadable: boolean;
 }
 
 /** 获取资源列表 GET /api/resources */

@@ -10,7 +10,16 @@ import {
   FileTextOutlined,
   PlayCircleOutlined,
 } from '@ant-design/icons';
-import { Form, Input, message, Modal, Select, Upload, UploadFile } from 'antd';
+import {
+  Form,
+  Input,
+  message,
+  Modal,
+  Select,
+  Switch,
+  Upload,
+  UploadFile,
+} from 'antd';
 import React, { useEffect, useState } from 'react';
 
 const { Option } = Select;
@@ -72,6 +81,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
           contentUrl: initialResource.contentUrl,
           type: initialResource.type,
           duration: initialResource.duration,
+          downloadable: initialResource.downloadable ?? true,
         });
       } else {
         const defaultType = getDefaultType();
@@ -79,6 +89,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         form.resetFields();
         form.setFieldsValue({
           type: defaultType,
+          downloadable: true,
         });
       }
     }
@@ -158,6 +169,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         contentUrl: values.contentUrl,
         type: values.type,
         duration: values.duration,
+        downloadable: values.downloadable ?? true,
       };
 
       const res = resourceId
@@ -215,6 +227,15 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
             {isTypeAllowed(1) && <Option value={1}>视频资源</Option>}
             {isTypeAllowed(2) && <Option value={2}>PDF资源</Option>}
           </Select>
+        </Form.Item>
+
+        <Form.Item
+          name="downloadable"
+          label="是否可下载"
+          valuePropName="checked"
+          tooltip="关闭后，App 课程章节中的图片和 PDF 仅支持预览"
+        >
+          <Switch checkedChildren="允许" unCheckedChildren="禁止" />
         </Form.Item>
 
         <Form.Item name="resourceId" hidden>

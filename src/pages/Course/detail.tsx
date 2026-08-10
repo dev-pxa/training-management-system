@@ -53,6 +53,7 @@ const formatResource = (resource?: CourseResourceRef) =>
         contentUrl: resource.contentUrl,
         type: resource.type,
         duration: resource.duration,
+        downloadable: resource.downloadable,
       }
     : undefined;
 

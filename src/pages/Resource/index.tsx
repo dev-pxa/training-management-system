@@ -16,7 +16,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Link, Outlet, history } from '@umijs/max';
-import { Button, Empty, Image, Modal, Popconfirm, message } from 'antd';
+import { Button, Empty, Image, Modal, Popconfirm, Tag, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
 const pdfWorkerUrl = new URL(
@@ -167,6 +167,18 @@ const ResourcePage: React.FC = () => {
       search: {
         show: true,
       },
+    },
+    {
+      title: '是否可下载',
+      dataIndex: 'downloadable',
+      key: 'downloadable',
+      hideInSearch: true,
+      render: (_: any, record: ResourceListItem) =>
+        record.downloadable !== false ? (
+          <Tag color="success">允许</Tag>
+        ) : (
+          <Tag>禁止</Tag>
+        ),
     },
     {
       title: '操作',

@@ -7,6 +7,7 @@ export interface CourseResourceRef {
   contentUrl: string;
   type?: number;
   duration?: number;
+  downloadable?: boolean;
 }
 
 export interface CourseTestInfo {
