@@ -14,6 +14,7 @@ import {
   ActionType,
   FooterToolbar,
   PageContainer,
+  ProFormInstance,
   ProTable,
 } from '@ant-design/pro-components';
 import { Link, Outlet, history } from '@umijs/max';
@@ -22,20 +23,44 @@ import React, { useEffect, useRef, useState } from 'react';
 
 const CoursePage: React.FC = () => {
   const actionRef = useRef<ActionType>();
+  const formRef = useRef<ProFormInstance>();
   const [selectedRows, setSelectedRows] = useState<CourseListItem[]>([]);
-  const [categories, setCategories] = useState<CourseCategoryRef[]>([]);
+  const [primaryCategories, setPrimaryCategories] = useState<
+    CourseCategoryRef[]
+  >([]);
+  const [secondaryCategories, setSecondaryCategories] = useState<
+    CourseCategoryRef[]
+  >([]);
+  const [filterPrimaryId, setFilterPrimaryId] = useState<number>();
+
+  const loadSecondaryCategories = async (primaryId?: number) => {
+    if (!primaryId) {
+      setSecondaryCategories([]);
+      return;
+    }
+    try {
+      const res = await getCourseCategories(primaryId);
+      if (res.code === 0 && Array.isArray(res.data)) {
+        setSecondaryCategories(res.data);
+      } else {
+        message.error(res.des || '获取二级分类失败');
+      }
+    } catch (error: any) {
+      message.error(error?.message || '获取二级分类失败');
+    }
+  };
 
   useEffect(() => {
-    getCourseCategories()
+    getCourseCategories(0)
       .then((res) => {
         if (res.code === 0 && Array.isArray(res.data)) {
-          setCategories(res.data);
+          setPrimaryCategories(res.data);
         } else {
-          message.error(res.des || '获取课程分类失败');
+          message.error(res.des || '获取一级分类失败');
         }
       })
       .catch(() => {
-        message.error('获取课程分类失败');
+        message.error('获取一级分类失败');
       });
   }, []);
 
@@ -127,28 +152,42 @@ const CoursePage: React.FC = () => {
       },
     },
     {
-      title: '分类',
-      dataIndex: 'categoryId',
-      key: 'categoryId',
+      title: '一级分类',
+      dataIndex: 'primaryCategoryId',
+      key: 'primaryCategoryId',
       valueType: 'select',
       fieldProps: {
-        options: categories.map((category) => ({
-          label: category.name,
-          value: category.id,
+        options: primaryCategories.map((item) => ({
+          label: item.name,
+          value: item.id,
         })),
-        placeholder: '请选择分类',
+        placeholder: '请选择一级分类',
         allowClear: true,
+        onChange: (value?: number) => {
+          setFilterPrimaryId(value);
+          formRef.current?.setFieldValue('secondaryCategoryId', undefined);
+          void loadSecondaryCategories(value);
+        },
       },
       render: (_: any, record: CourseListItem) =>
-        record.categories?.length ? (
-          <>
-            {record.categories.map((category) => (
-              <Tag key={category.id}>{category.name}</Tag>
-            ))}
-          </>
-        ) : (
-          '-'
-        ),
+        record.primaryCategory?.name || '-',
+    },
+    {
+      title: '二级分类',
+      dataIndex: 'secondaryCategoryId',
+      key: 'secondaryCategoryId',
+      valueType: 'select',
+      fieldProps: {
+        allowClear: true,
+        disabled: !filterPrimaryId,
+        placeholder: filterPrimaryId ? '请选择二级分类' : '请先选择一级分类',
+        options: secondaryCategories.map((item) => ({
+          label: item.name,
+          value: item.id,
+        })),
+      },
+      render: (_: any, record: CourseListItem) =>
+        record.secondaryCategory?.name || '-',
     },
     {
       title: '是否需要考试',
@@ -245,6 +284,7 @@ const CoursePage: React.FC = () => {
       <Outlet />
       <ProTable<CourseListItem>
         actionRef={actionRef}
+        formRef={formRef}
         headerTitle="课程列表"
         rowKey="id"
         search={{
@@ -270,9 +310,13 @@ const CoursePage: React.FC = () => {
             queryInfo: {
               name: params.name,
               type: params.type !== undefined ? Number(params.type) : undefined,
-              categoryId:
-                params.categoryId !== undefined
-                  ? Number(params.categoryId)
+              primaryCategoryId:
+                params.primaryCategoryId !== undefined
+                  ? Number(params.primaryCategoryId)
+                  : undefined,
+              secondaryCategoryId:
+                params.secondaryCategoryId !== undefined
+                  ? Number(params.secondaryCategoryId)
                   : undefined,
               hasTest:
                 params.hasTest !== undefined

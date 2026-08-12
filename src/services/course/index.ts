@@ -20,7 +20,8 @@ export interface CourseListItem {
   name: string;
   desc: string;
   type: number;
-  categories?: CourseCategoryRef[];
+  primaryCategory?: CourseCategoryRef;
+  secondaryCategory?: CourseCategoryRef;
   owner: string;
   hasTest: boolean;
   isOnline?: boolean;
@@ -40,8 +41,10 @@ export interface CourseDetail {
   name: string;
   desc: string;
   type: number;
-  categories?: CourseCategoryRef[];
-  categoryIds?: number[];
+  primaryCategory?: CourseCategoryRef;
+  secondaryCategory?: CourseCategoryRef;
+  primaryCategoryId: number;
+  secondaryCategoryId?: number;
   owner: string;
   hasTest: boolean;
   coverResource?: CourseResourceRef;
@@ -54,7 +57,8 @@ export interface CourseListRequest {
   queryInfo?: {
     name?: string;
     type?: number;
-    categoryId?: number;
+    primaryCategoryId?: number;
+    secondaryCategoryId?: number;
     hasTest?: boolean;
     isOnline?: boolean;
     owner?: string;

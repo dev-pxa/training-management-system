@@ -24,13 +24,14 @@ import {
   Form,
   Input,
   message,
+  Modal,
   Select,
-  Space,
 } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 const { Option } = Select;
 const { TextArea } = Input;
+type CategoryLevel = 'primary' | 'secondary';
 
 const normalizeResource = (
   resource?: CourseResourceRef,
@@ -69,25 +70,53 @@ const CourseDetailPage: React.FC = () => {
   const [resourceList, setResourceList] = useState<ResourceListItem[]>([]);
   const [testList, setTestList] = useState<TestListItem[]>([]);
   const [testLoading, setTestLoading] = useState(false);
-  const [categories, setCategories] = useState<CourseCategoryRef[]>([]);
+  const [primaryCategories, setPrimaryCategories] = useState<
+    CourseCategoryRef[]
+  >([]);
+  const [secondaryCategories, setSecondaryCategories] = useState<
+    CourseCategoryRef[]
+  >([]);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [categoryModalLevel, setCategoryModalLevel] = useState<CategoryLevel>();
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryCreating, setCategoryCreating] = useState(false);
+  const selectedPrimaryId = Form.useWatch('primaryCategoryId', form);
 
-  const loadCategories = async () => {
+  const loadPrimaryCategories = async () => {
     setCategoryLoading(true);
     try {
-      const res = await getCourseCategories();
+      const res = await getCourseCategories(0);
       if (res.code === 0 && Array.isArray(res.data)) {
-        setCategories(res.data);
+        setPrimaryCategories(res.data);
       } else {
-        message.error(res.des || '获取课程分类失败');
+        message.error(res.des || '获取一级分类失败');
       }
     } catch (error: any) {
-      message.error(error?.message || '获取课程分类失败');
+      message.error(error?.message || '获取一级分类失败');
     } finally {
       setCategoryLoading(false);
     }
+  };
+
+  const loadSecondaryCategories = async (primaryId?: number) => {
+    if (!primaryId) {
+      setSecondaryCategories([]);
+      return [];
+    }
+    setCategoryLoading(true);
+    try {
+      const res = await getCourseCategories(primaryId);
+      if (res.code === 0 && Array.isArray(res.data)) {
+        setSecondaryCategories(res.data);
+        return res.data as CourseCategoryRef[];
+      }
+      message.error(res.des || '获取二级分类失败');
+    } catch (error: any) {
+      message.error(error?.message || '获取二级分类失败');
+    } finally {
+      setCategoryLoading(false);
+    }
+    return [];
   };
 
   const loadResources = async () => {
@@ -127,7 +156,7 @@ const CourseDetailPage: React.FC = () => {
     // 加载资源列表和测试列表
     loadResources();
     loadTests();
-    loadCategories();
+    void loadPrimaryCategories();
 
     if (!isAddMode && id) {
       const fetchData = async () => {
@@ -135,18 +164,9 @@ const CourseDetailPage: React.FC = () => {
           const res = await getCourseDetail(id);
           if (res.code === 0 && res.data) {
             const data = res.data;
-            const detailCategories = Array.isArray(data.categories)
-              ? data.categories
-              : [];
-            setCategories((current) => {
-              const merged = [...current];
-              detailCategories.forEach((category: CourseCategoryRef) => {
-                if (!merged.some((item) => item.id === category.id)) {
-                  merged.push(category);
-                }
-              });
-              return merged;
-            });
+            if (data.primaryCategory?.id) {
+              await loadSecondaryCategories(data.primaryCategory.id);
+            }
             setCourseType(data.type);
             setChapters(
               Array.isArray(data.details)
@@ -164,9 +184,8 @@ const CourseDetailPage: React.FC = () => {
               name: data.name,
               desc: data.desc,
               type: data.type,
-              categoryIds: detailCategories.map(
-                (category: CourseCategoryRef) => category.id,
-              ),
+              primaryCategoryId: data.primaryCategory?.id,
+              secondaryCategoryId: data.secondaryCategory?.id,
               owner: data.owner,
               hasTest: data.hasTest,
               coverResource: normalizeResource(
@@ -215,7 +234,8 @@ const CourseDetailPage: React.FC = () => {
       name: values.name,
       desc: values.desc,
       type: values.type,
-      categoryIds: values.categoryIds ?? [],
+      primaryCategoryId: values.primaryCategoryId,
+      secondaryCategoryId: values.secondaryCategoryId,
       hasTest: values.hasTest,
       coverResource: formatResource(values.coverResource),
       certificateResource: formatResource(values.certificateResource),
@@ -306,32 +326,56 @@ const CourseDetailPage: React.FC = () => {
     return options;
   };
 
-  const handleAddCategory = async () => {
+  const handlePrimaryChange = (primaryId?: number) => {
+    form.setFieldValue('secondaryCategoryId', undefined);
+    void loadSecondaryCategories(primaryId);
+  };
+
+  const openCategoryModal = (level: CategoryLevel) => {
+    if (level === 'secondary' && !form.getFieldValue('primaryCategoryId')) {
+      message.warning('请先选择一级分类');
+      return;
+    }
+    setNewCategoryName('');
+    setCategoryModalLevel(level);
+  };
+
+  const handleCreateCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) {
       message.warning('请输入分类名称');
       return;
     }
+    const primaryId = form.getFieldValue('primaryCategoryId') as
+      | number
+      | undefined;
+    if (categoryModalLevel === 'secondary' && !primaryId) {
+      message.warning('请先选择一级分类');
+      return;
+    }
     setCategoryCreating(true);
     try {
-      const res = await addCourseCategory({ name });
+      const parentId = categoryModalLevel === 'secondary' ? primaryId! : 0;
+      const res = await addCourseCategory({ parentId, name });
       if (res.code !== 0 || !res.data) {
         message.error(res.des || '新增分类失败');
         return;
       }
       const category = res.data as CourseCategoryRef;
-      setCategories((current) =>
-        current.some((item) => item.id === category.id)
-          ? current
-          : [...current, category],
-      );
-      const selectedIds: number[] = form.getFieldValue('categoryIds') ?? [];
-      form.setFieldValue(
-        'categoryIds',
-        Array.from(new Set([...selectedIds, category.id])),
-      );
-      setNewCategoryName('');
+      if (categoryModalLevel === 'primary') {
+        await loadPrimaryCategories();
+        form.setFieldsValue({
+          primaryCategoryId: category.id,
+          secondaryCategoryId: undefined,
+        });
+        setSecondaryCategories([]);
+      } else {
+        await loadSecondaryCategories(primaryId);
+        form.setFieldValue('secondaryCategoryId', category.id);
+      }
       message.success('分类新增成功');
+      setCategoryModalLevel(undefined);
+      setNewCategoryName('');
     } catch (error: any) {
       message.error(error?.message || '新增分类失败');
     } finally {
@@ -339,10 +383,33 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const categoryDropdown = (menu: React.ReactNode, level: CategoryLevel) => (
+    <>
+      {menu}
+      {editable && (
+        <>
+          <Divider style={{ margin: '8px 0' }} />
+          <Button
+            type="text"
+            block
+            icon={<PlusOutlined />}
+            disabled={level === 'secondary' && !selectedPrimaryId}
+            onClick={() => openCategoryModal(level)}
+          >
+            添加{level === 'primary' ? '一级' : '二级'}分类
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  const primaryName = primaryCategories.find(
+    (item) => item.id === form.getFieldValue('primaryCategoryId'),
+  )?.name;
+
   if (loading) {
     return <div>加载中...</div>;
   }
-  console.log(form.getFieldValue('coverResource'));
   return (
     <PageContainer
       header={{
@@ -400,50 +467,44 @@ const CourseDetailPage: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item name="categoryIds" label="分类">
+          <Form.Item
+            name="primaryCategoryId"
+            label="一级分类"
+            rules={[{ required: true, message: '请选择一级分类' }]}
+          >
             <Select
-              mode="multiple"
               disabled={!editable}
               loading={categoryLoading}
-              placeholder="请选择分类（可多选）"
-              allowClear
-              options={categories.map((category) => ({
-                label: category.name,
-                value: category.id,
+              placeholder="请选择一级分类"
+              options={primaryCategories.map((item) => ({
+                label: item.name,
+                value: item.id,
               }))}
-              dropdownRender={(menu) => (
-                <>
-                  {menu}
-                  {editable && (
-                    <>
-                      <Divider style={{ margin: '8px 0' }} />
-                      <Space style={{ padding: '0 8px 8px' }}>
-                        <Input
-                          value={newCategoryName}
-                          maxLength={30}
-                          placeholder="输入新分类名称"
-                          onChange={(event) =>
-                            setNewCategoryName(event.target.value)
-                          }
-                          onKeyDown={(event) => event.stopPropagation()}
-                          onPressEnter={(event) => {
-                            event.preventDefault();
-                            handleAddCategory();
-                          }}
-                        />
-                        <Button
-                          type="text"
-                          icon={<PlusOutlined />}
-                          loading={categoryCreating}
-                          onClick={handleAddCategory}
-                        >
-                          新增
-                        </Button>
-                      </Space>
-                    </>
-                  )}
-                </>
-              )}
+              onChange={handlePrimaryChange}
+              popupRender={(menu) => categoryDropdown(menu, 'primary')}
+            />
+          </Form.Item>
+
+          <Form.Item name="secondaryCategoryId" label="二级分类（选填）">
+            <Select
+              allowClear
+              disabled={!editable || !selectedPrimaryId}
+              loading={categoryLoading}
+              placeholder={
+                selectedPrimaryId ? '请选择二级分类' : '请先选择一级分类'
+              }
+              notFoundContent={
+                selectedPrimaryId ? '暂无二级分类' : '请先选择一级分类'
+              }
+              options={
+                selectedPrimaryId
+                  ? secondaryCategories.map((item) => ({
+                      label: item.name,
+                      value: item.id,
+                    }))
+                  : []
+              }
+              popupRender={(menu) => categoryDropdown(menu, 'secondary')}
             />
           </Form.Item>
 
@@ -627,6 +688,29 @@ const CourseDetailPage: React.FC = () => {
           )}
         </Form>
       </div>
+
+      <Modal
+        open={!!categoryModalLevel}
+        title={`添加${categoryModalLevel === 'primary' ? '一级' : '二级'}分类`}
+        okText="确认添加"
+        cancelText="取消"
+        confirmLoading={categoryCreating}
+        onOk={handleCreateCategory}
+        onCancel={() => setCategoryModalLevel(undefined)}
+      >
+        {categoryModalLevel === 'secondary' && (
+          <div style={{ marginBottom: 12 }}>
+            新分类将添加到一级分类“{primaryName || '-'}”下。
+          </div>
+        )}
+        <Input
+          value={newCategoryName}
+          maxLength={50}
+          placeholder="请输入分类名称"
+          onChange={(event) => setNewCategoryName(event.target.value)}
+          onPressEnter={handleCreateCategory}
+        />
+      </Modal>
     </PageContainer>
   );
 };
