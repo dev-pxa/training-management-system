@@ -107,6 +107,31 @@ export default defineConfig({
       component: './CertificateVerify',
       access: 'isAdmin',
     },
+    {
+      name: '知识问答',
+      icon: 'BulbOutlined',
+      path: '/knowledge',
+      routes: [
+        { path: '/knowledge', redirect: '/knowledge/bases' },
+        {
+          name: '知识库管理',
+          path: '/knowledge/bases',
+          component: './KnowledgeBase',
+        },
+        {
+          name: '知识管理',
+          path: '/knowledge/manage',
+          component: './Knowledge',
+        },
+        {
+          name: '召回测试',
+          path: '/knowledge/recall',
+          component: './Knowledge/recall',
+        },
+      ],
+    },
+    { path: '/knowledge/add', component: './Knowledge/detail' },
+    { path: '/knowledge/detail/:id', component: './Knowledge/detail' },
   ],
 
   /* ==================== 以下代理配置，仅用于开发环境，上线前请删除 ==================== */
