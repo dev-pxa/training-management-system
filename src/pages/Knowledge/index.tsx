@@ -7,7 +7,11 @@ import {
   updateKnowledgeStatus,
 } from '@/services/knowledge';
 import { handleApiResponse } from '@/utils/response';
-import { PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import {
+  ImportOutlined,
+  PlusOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
 import {
   ActionType,
   PageContainer,
@@ -15,8 +19,9 @@ import {
   ProTable,
 } from '@ant-design/pro-components';
 import { history, useLocation } from '@umijs/max';
-import { Button, Popconfirm, Space, Tag, Tooltip, message } from 'antd';
-import React, { useRef } from 'react';
+import { Button, Modal, Popconfirm, Space, Tag, Tooltip, message } from 'antd';
+import React, { useRef, useState } from 'react';
+import ImportModal from './ImportModal';
 
 const statusEnum = {
   0: { text: '草稿', status: 'Default' },
@@ -48,9 +53,76 @@ const titleWithHelp = (title: string, help: React.ReactNode) => (
 
 export default () => {
   const actionRef = useRef<ActionType>();
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<KnowledgeEntry[]>([]);
   const knowledgeBaseId = new URLSearchParams(useLocation().search).get(
     'knowledgeBaseId',
   );
+  const finishBatchAction = () => {
+    setSelectedRows([]);
+    actionRef.current?.reload();
+  };
+  const confirmBatchStatus = (status: 1 | 2) =>
+    Modal.confirm({
+      title: `确认批量${status === 1 ? '启用' : '停用'} ${
+        selectedRows.length
+      } 条知识？`,
+      content:
+        status === 1
+          ? '启用后这些知识将参与问答召回；当前版本尚未索引的知识会自动提交索引任务。'
+          : '停用后这些知识将立即停止参与问答召回，但已生成的向量会保留，之后可以重新启用。',
+      okText: `确认${status === 1 ? '启用' : '停用'}`,
+      cancelText: '取消',
+      onOk: async () => {
+        const results = await Promise.all(
+          selectedRows.map((row) => updateKnowledgeStatus(row.id, status)),
+        );
+        const failed = results.filter((v) => v.code !== 0);
+        if (failed.length) message.error(`${failed.length} 条操作失败`);
+        else message.success('操作成功');
+        finishBatchAction();
+      },
+    });
+  const confirmBatchReindex = () => {
+    const unavailable = selectedRows.filter((row) => row.status !== 1);
+    if (unavailable.length) {
+      message.warning(
+        `有 ${unavailable.length} 条知识不是启用状态，请重新选择`,
+      );
+      return;
+    }
+    Modal.confirm({
+      title: `确认重建 ${selectedRows.length} 条知识的索引？`,
+      content:
+        '系统将逐条重新调用向量模型并覆盖当前版本索引，会消耗模型调用额度；请在提交后留意索引状态。',
+      okText: '确认重建',
+      cancelText: '取消',
+      onOk: async () => {
+        const results = await Promise.all(
+          selectedRows.map((row) => reindexKnowledgeEntry(row.id)),
+        );
+        const failed = results.filter((v) => v.code !== 0);
+        if (failed.length) message.error(`${failed.length} 条提交失败`);
+        else message.success('已提交重建索引');
+        finishBatchAction();
+      },
+    });
+  };
+  const confirmBatchDelete = () =>
+    Modal.confirm({
+      title: `确认删除选中的 ${selectedRows.length} 条知识？`,
+      content:
+        '删除后这些知识将立即从管理列表和问答召回中移除，关联向量也会异步删除，且无法在管理端恢复。',
+      okText: '确认删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        const res = await deleteKnowledgeEntries(
+          selectedRows.map((row) => row.id),
+        );
+        if (handleApiResponse(res, '删除成功')) finishBatchAction();
+      },
+    });
   const columns: ProColumns<KnowledgeEntry>[] = [
     {
       title: '所属知识库',
@@ -70,7 +142,7 @@ export default () => {
       title: '标准问题',
       dataIndex: 'standardQuestion',
       ellipsis: true,
-      width: 320,
+      width: 215,
     },
     {
       title: titleWithHelp(
@@ -141,9 +213,16 @@ export default () => {
           >
             召回测试
           </Button>
-          <Button
-            type="link"
-            onClick={async () => {
+          <Popconfirm
+            title={row.status === 1 ? '确认停用该知识？' : '确认启用该知识？'}
+            description={
+              row.status === 1
+                ? '停用后将立即停止参与问答召回，但已生成的向量会保留，之后可重新启用。'
+                : '启用后将参与问答召回；如果当前版本尚未索引，系统会自动提交索引任务。'
+            }
+            okText={row.status === 1 ? '确认停用' : '确认启用'}
+            cancelText="取消"
+            onConfirm={async () => {
               const res = await updateKnowledgeStatus(
                 row.id,
                 row.status === 1 ? 2 : 1,
@@ -151,21 +230,28 @@ export default () => {
               if (handleApiResponse(res)) actionRef.current?.reload();
             }}
           >
-            {row.status === 1 ? '停用' : '启用'}
-          </Button>
+            <Button type="link">{row.status === 1 ? '停用' : '启用'}</Button>
+          </Popconfirm>
           {row.status === 1 && (
-            <Button
-              type="link"
-              onClick={async () => {
+            <Popconfirm
+              title="确认重建索引？"
+              description="系统将重新调用向量模型并覆盖该知识当前版本的索引，会消耗模型调用额度；任务完成前请留意索引状态。"
+              okText="确认重建"
+              cancelText="取消"
+              onConfirm={async () => {
                 const res = await reindexKnowledgeEntry(row.id);
                 if (handleApiResponse(res)) actionRef.current?.reload();
               }}
             >
-              重建索引
-            </Button>
+              <Button type="link">重建索引</Button>
+            </Popconfirm>
           )}
           <Popconfirm
-            title="删除后该知识将不再参与智能问答，确定删除吗？"
+            title="确认删除该知识？"
+            description="删除后该知识将立即从管理列表和问答召回中移除，关联向量也会异步删除，且无法在管理端恢复。"
+            okText="确认删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
             onConfirm={async () => {
               const res = await deleteKnowledgeEntries([row.id]);
               if (handleApiResponse(res)) actionRef.current?.reload();
@@ -181,12 +267,46 @@ export default () => {
   ];
   return (
     <PageContainer title="知识管理">
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        defaultKnowledgeBaseId={
+          knowledgeBaseId ? Number(knowledgeBaseId) : undefined
+        }
+      />
       <ProTable<KnowledgeEntry>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
+        rowSelection={{
+          selectedRowKeys: selectedRows.map((row) => row.id),
+          onChange: (_, rows) => setSelectedRows(rows),
+        }}
+        tableAlertOptionRender={() => (
+          <Space>
+            <Button size="small" onClick={() => confirmBatchStatus(1)}>
+              批量启用
+            </Button>
+            <Button size="small" onClick={() => confirmBatchStatus(2)}>
+              批量停用
+            </Button>
+            <Button size="small" onClick={confirmBatchReindex}>
+              批量重建索引
+            </Button>
+            <Button size="small" danger onClick={confirmBatchDelete}>
+              批量删除
+            </Button>
+          </Space>
+        )}
         headerTitle="问答知识"
         toolBarRender={() => [
+          <Button
+            key="import"
+            icon={<ImportOutlined />}
+            onClick={() => setImportOpen(true)}
+          >
+            批量导入
+          </Button>,
           <Button
             key="new"
             type="primary"

@@ -71,3 +71,64 @@ export const updateKnowledgeBaseStatus = (id: number, status: number) =>
     method: 'PUT',
     params: { status },
   });
+
+export interface KnowledgeImportBatch {
+  id: number;
+  knowledgeBaseId: number;
+  knowledgeBaseName?: string;
+  fileName: string;
+  status: 'PARSING' | 'REVIEWING' | 'COMPLETED' | 'FAILED';
+  stage: string;
+  progress: number;
+  progressMessage?: string;
+  totalCount: number;
+  pendingCount: number;
+  approvedCount: number;
+  deletedCount: number;
+  failedCount: number;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+export interface KnowledgeImportItem {
+  id: number;
+  batchId: number;
+  knowledgeBaseId: number;
+  knowledgeBaseName?: string;
+  standardQuestion: string;
+  answer: string;
+  variantQuestions: string[];
+  sourceText?: string;
+  confidence?: number;
+  warnings?: string[];
+}
+
+export const createKnowledgeImport = (file: File, knowledgeBaseId: number) => {
+  const data = new FormData();
+  data.append('file', file);
+  data.append('knowledgeBaseId', String(knowledgeBaseId));
+  return request('/api/knowledge/imports', { method: 'POST', data });
+};
+export const getKnowledgeImports = (params: Record<string, any>) =>
+  request('/api/knowledge/imports', { method: 'GET', params });
+export const deleteKnowledgeImports = (ids: number[]) =>
+  request('/api/knowledge/imports', { method: 'DELETE', data: { ids } });
+export const getKnowledgeImport = (id: number) =>
+  request(`/api/knowledge/imports/${id}`, { method: 'GET' });
+export const getKnowledgeImportItems = (
+  id: number,
+  params: Record<string, any>,
+) => request(`/api/knowledge/imports/${id}/items`, { method: 'GET', params });
+export const deleteKnowledgeImportItem = (batchId: number, itemId: number) =>
+  request(`/api/knowledge/imports/${batchId}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+export const approveKnowledgeImportItem = (
+  batchId: number,
+  itemId: number,
+  data: KnowledgePayload,
+) =>
+  request(`/api/knowledge/imports/${batchId}/items/${itemId}/approve`, {
+    method: 'POST',
+    data,
+  });

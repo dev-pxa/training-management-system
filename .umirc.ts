@@ -128,7 +128,16 @@ export default defineConfig({
           path: '/knowledge/recall',
           component: './Knowledge/recall',
         },
+        {
+          name: '批量生成记录',
+          path: '/knowledge/imports',
+          component: './KnowledgeImport',
+        },
       ],
+    },
+    {
+      path: '/knowledge/imports/:id/review',
+      component: './KnowledgeImport/review',
     },
     { path: '/knowledge/add', component: './Knowledge/detail' },
     { path: '/knowledge/detail/:id', component: './Knowledge/detail' },
