@@ -1,7 +1,7 @@
 import { checkLogin } from '@/services/auth';
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { history, RequestConfig } from '@umijs/max';
-import { message, Popconfirm } from 'antd';
+import { message, Popconfirm, Watermark } from 'antd';
 
 let appReady = false;
 let currentUserCache: AuthAPI.UserInfo | undefined;
@@ -81,14 +81,37 @@ export const request: RequestConfig = {
   },
 };
 
-export const layout = () => {
+export const layout = ({
+  initialState,
+}: {
+  initialState?: { currentUser?: AuthAPI.UserInfo };
+}) => {
+  const currentUser = initialState?.currentUser || currentUserCache;
   return {
     logo: 'https://img.alicdn.com/tfs/TB1YHEpwUT1gK0jSZFhXXaAtVXa-28-27.svg',
     menu: {
       locale: false,
     },
+    childrenRender: (children: React.ReactNode) => {
+      if (!currentUser || history.location.pathname === '/login')
+        return children;
+      return (
+        <Watermark
+          content={[
+            `姓名：${currentUser.name || '-'}`,
+            `用户名：${currentUser.uname || '-'}`,
+          ]}
+          rotate={-22}
+          gap={[180, 140]}
+          font={{ color: 'rgba(0, 0, 0, 0.12)', fontSize: 14 }}
+          style={{ minHeight: '100%' }}
+        >
+          {children}
+        </Watermark>
+      );
+    },
     menuFooterRender: (props: { collapsed?: boolean }) => {
-      if (!currentUserCache) return null;
+      if (!currentUser) return null;
       const collapsed = props?.collapsed;
 
       const handleGoProfile = () => history.push('/profile');
@@ -136,7 +159,7 @@ export const layout = () => {
             onClick={handleGoProfile}
           >
             <UserOutlined />
-            <span>{currentUserCache.name}</span>
+            <span>{currentUser.name}</span>
           </div>
           <Popconfirm
             title="确定退出登录？"
