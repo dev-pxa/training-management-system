@@ -28,3 +28,28 @@ export async function addProductCategory(
     ...(options || {}),
   });
 }
+
+export async function updateProductCategory(
+  id: number,
+  body: { name: string },
+  options?: { [key: string]: any },
+) {
+  return request('/api/product-category', {
+    method: 'PUT',
+    params: { id },
+    headers: { 'Content-Type': 'application/json' },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+export async function deleteProductCategory(
+  id: number,
+  options?: { [key: string]: any },
+) {
+  return request('/api/product-category', {
+    method: 'DELETE',
+    params: { id },
+    ...(options || {}),
+  });
+}

@@ -32,3 +32,30 @@ export async function addCourseCategory(
     ...(options || {}),
   });
 }
+
+/** 修改课程分类名称。 */
+export async function updateCourseCategory(
+  id: number,
+  body: { name: string },
+  options?: { [key: string]: any },
+) {
+  return request(`/api/course-category?id=${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  });
+}
+
+/** 删除未被课程或子分类关联的课程分类。 */
+export async function deleteCourseCategory(
+  id: number,
+  options?: { [key: string]: any },
+) {
+  return request(`/api/course-category?id=${id}`, {
+    method: 'DELETE',
+    ...(options || {}),
+  });
+}

@@ -17,7 +17,7 @@ import {
   ProFormInstance,
   ProTable,
 } from '@ant-design/pro-components';
-import { Link, Outlet, history } from '@umijs/max';
+import { Link, history } from '@umijs/max';
 import { Button, Modal, Popconfirm, Tag, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -278,10 +278,9 @@ const CoursePage: React.FC = () => {
   return (
     <PageContainer
       header={{
-        title: '课程管理',
+        title: '课程列表',
       }}
     >
-      <Outlet />
       <ProTable<CourseListItem>
         actionRef={actionRef}
         formRef={formRef}

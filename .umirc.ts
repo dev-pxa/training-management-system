@@ -22,7 +22,7 @@ export default defineConfig({
     },
     {
       path: '/',
-      redirect: '/course',
+      redirect: '/course/list',
     },
     {
       name: '人员管理',
@@ -45,32 +45,63 @@ export default defineConfig({
       name: '课程管理',
       icon: 'BookOutlined',
       path: '/course',
-      component: './Course',
+      routes: [
+        { path: '/course', redirect: '/course/list' },
+        {
+          name: '课程列表',
+          path: '/course/list',
+          component: './Course',
+        },
+        {
+          name: '分类管理',
+          path: '/course/categories',
+          component: './CourseCategory',
+          access: 'isAdmin',
+        },
+      ],
     },
     {
       path: '/course/add',
       component: './Course/detail',
+      hideInMenu: true,
     },
     {
       path: '/course/detail/:id',
       component: './Course/detail',
+      hideInMenu: true,
     },
     {
       name: '产品管理',
       icon: 'ShoppingOutlined',
       path: '/product',
-      component: './Product',
       access: 'isAdmin',
+      routes: [
+        { path: '/product', redirect: '/product/list' },
+        {
+          name: '产品列表',
+          path: '/product/list',
+          component: './Product',
+          access: 'isAdmin',
+        },
+        {
+          name: '分类管理',
+          path: '/product/categories',
+          component: './ProductCategory',
+          access: 'isAdmin',
+        },
+      ],
     },
     {
       path: '/product/add',
       component: './Product/detail',
       access: 'isAdmin',
+      hideInMenu: true,
     },
     {
       path: '/product/detail/:id',
       component: './Product/detail',
       access: 'isAdmin',
+      hideInMenu: true,
     },
     {
       name: '资源管理',
@@ -147,14 +178,14 @@ export default defineConfig({
   // #region 代理配置
   proxy: {
     // '/api': {
-    //   target: 'http://127.0.0.1:4523/m1/8000488-7754565-default',
-    //   changeOrigin: true,
-    // },
-    // '/api': {
-    //   target: 'http://127.0.0.1:8080',
+    //   target: 'http://49.232.34.105:8080',
     //   changeOrigin: true,
     // },
     '/api': {
+      // '/api': {
+      //   target: 'http://127.0.0.1:8080',
+      //   changeOrigin: true,
+      // },
       target: 'http://49.232.34.105:8080',
       changeOrigin: true,
     },
