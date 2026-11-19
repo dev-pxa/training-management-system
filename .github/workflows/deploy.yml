@@ -43,12 +43,27 @@ jobs:
           echo "BACKEND_URL=${BETA_BACKEND_URL:-http://host.docker.internal:8080}" >> "$GITHUB_ENV"
 
       - name: Configure SSH
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tencent_cloud_deploy_key
           chmod 600 ~/.ssh/tencent_cloud_deploy_key
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          known_host_tmp="$(mktemp)"
+          for attempt in $(seq 1 6); do
+            if ssh-keyscan -T 10 -p "$SSH_PORT" -H "$SSH_HOST" > "$known_host_tmp" 2>/dev/null \
+              && [[ -s "$known_host_tmp" ]]; then
+              cat "$known_host_tmp" >> ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" == "6" ]]; then
+              echo "::error::Unable to obtain SSH host key from $SSH_HOST after 6 attempts"
+              exit 1
+            fi
+            echo "SSH host-key scan ${attempt}/6 failed; retrying in 5 seconds..."
+            sleep 5
+          done
 
       - name: Deploy by SSH script
         run: |
