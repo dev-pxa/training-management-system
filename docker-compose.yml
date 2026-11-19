@@ -2,7 +2,7 @@ services:
   training-web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ${WEB_DOCKERFILE:-Dockerfile}
     image: training-web:latest
     container_name: training-web
     ports:

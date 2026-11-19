@@ -7,6 +7,7 @@ SSH_PORT="${SSH_PORT:-22}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/training-management-system}"
 WEB_PORT="${WEB_PORT:-18000}"
 BACKEND_URL="${BACKEND_URL:-http://host.docker.internal:8080}"
+WEB_DOCKERFILE="${WEB_DOCKERFILE:-Dockerfile}"
 ARCHIVE_NAME="training-management-system-release.tgz"
 LOCAL_ARCHIVE="/tmp/${ARCHIVE_NAME}"
 REMOTE_ARCHIVE="/tmp/${ARCHIVE_NAME}"
@@ -23,8 +24,16 @@ if [[ -z "$DEPLOY_PATH" || "$DEPLOY_PATH" == "/" ]]; then
   echo "Invalid DEPLOY_PATH: ${DEPLOY_PATH}" >&2
   exit 1
 fi
+if [[ "$WEB_DOCKERFILE" != "Dockerfile" && "$WEB_DOCKERFILE" != "Dockerfile.release" ]]; then
+  echo "WEB_DOCKERFILE must be Dockerfile or Dockerfile.release" >&2
+  exit 1
+fi
 
 echo "Packing project..."
+if [[ "$WEB_DOCKERFILE" == "Dockerfile.release" ]]; then
+  [[ -d dist ]] || { echo "dist/ is required for Dockerfile.release" >&2; exit 1; }
+  tar -czf "$LOCAL_ARCHIVE" Dockerfile.release docker-compose.yml nginx.conf.template .dockerignore dist
+else
 tar \
   --exclude='.git' \
   --exclude='.github' \
@@ -35,13 +44,14 @@ tar \
   --exclude='.pnpm-store' \
   --exclude='.cache' \
   -czf "$LOCAL_ARCHIVE" .
+fi
 
 echo "Uploading to ${SSH_USER}@${SSH_HOST}:${REMOTE_ARCHIVE}..."
 "${SCP_CMD[@]}" "$LOCAL_ARCHIVE" "${SSH_USER}@${SSH_HOST}:${REMOTE_ARCHIVE}"
 
 echo "Deploying on ${SSH_HOST}:${DEPLOY_PATH}..."
 "${SSH_CMD[@]}" "${SSH_USER}@${SSH_HOST}" \
-  "DEPLOY_PATH='$DEPLOY_PATH' WEB_PORT='$WEB_PORT' BACKEND_URL='$BACKEND_URL' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' bash -s" <<'REMOTE'
+  "DEPLOY_PATH='$DEPLOY_PATH' WEB_PORT='$WEB_PORT' BACKEND_URL='$BACKEND_URL' WEB_DOCKERFILE='$WEB_DOCKERFILE' REMOTE_ARCHIVE='$REMOTE_ARCHIVE' bash -s" <<'REMOTE'
 set -euo pipefail
 
 if [[ -z "$DEPLOY_PATH" || "$DEPLOY_PATH" == "/" ]]; then
@@ -57,10 +67,11 @@ cd "$DEPLOY_PATH"
 cat > .env <<EOF
 WEB_PORT=$WEB_PORT
 BACKEND_URL=$BACKEND_URL
+WEB_DOCKERFILE=$WEB_DOCKERFILE
 EOF
 
-docker compose build --pull
-docker compose up -d
+[[ -f "$WEB_DOCKERFILE" ]] || { echo "Missing Dockerfile: $WEB_DOCKERFILE" >&2; exit 1; }
+docker compose up -d --build
 docker compose ps
 curl -fsS "http://127.0.0.1:${WEB_PORT}/"
 REMOTE
